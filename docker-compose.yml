@@ -1,6 +1,7 @@
 services:
   bookin:
-    build: .
+    image: ghcr.io/adriel-m/bookin:latest
+    pull_policy: always
     container_name: bookin
     restart: unless-stopped
     volumes:
