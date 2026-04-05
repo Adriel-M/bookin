@@ -6,7 +6,7 @@ Drop ebooks into a folder — bookin automatically fetches metadata and cover ar
 
 1. Drop an ebook (`.epub`, `.mobi`, `.azw3`, `.pdf`, etc.) into the input folder
 2. bookin detects the new file, reads its embedded metadata, and queries Amazon for enriched metadata + cover
-3. The book is exported to the output folder using your configured template (e.g. `{authors}/{title}/{title}`)
+3. The book is exported to the output folder using your configured template (e.g. `{authors}/{title}`)
 4. The source file is removed from the input folder
 
 Files that fail are moved to `output/_failed/` with an `.error` sidecar describing what went wrong.
@@ -33,7 +33,7 @@ Output appears in `./output/` organized by your template.
 
 ```yaml
 # config.yaml
-template: "{authors}/{title}/{title}"
+template: "{authors}/{title}"
 log_level: INFO
 ```
 
@@ -53,13 +53,13 @@ The `template` field uses [Calibre Template Language](https://manual.calibre-ebo
 **Template examples:**
 
 ```yaml
-# Author / Title / Title.epub
-template: "{authors}/{title}/{title}"
+# Author / Title
+template: "{authors}/{title}"
 
-# Author / Series N - Title / Title.epub
-template: "{authors}/{series}/{series_index} - {title}/{title}"
+# Author / Series N - Title
+template: "{authors}/{series}/{series_index} - {title}"
 
-# Flat: Author - Title.epub
+# Flat: Author - Title
 template: "{authors} - {title}"
 ```
 
