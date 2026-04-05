@@ -111,7 +111,9 @@ def test_parse_opf_extracts_all_fields():
 
 
 def test_parse_opf_missing_fields_are_absent():
-    meta = parse_opf('<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Only Title</dc:title></metadata></package>')
+    meta = parse_opf(
+        '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Only Title</dc:title></metadata></package>'
+    )
     assert meta["title"] == "Only Title"
     assert meta.get("authors", "") == ""
     assert "series" not in meta
@@ -124,7 +126,15 @@ def test_parse_opf_missing_fields_are_absent():
 
 def test_write_metadata_passes_fields(mocker, tmp_path):
     run_mock = mocker.patch("subprocess.run", return_value=_ok())
-    write_metadata(tmp_path / "book.epub", {"title": "Dune", "authors": "Frank Herbert", "series": "Dune Chronicles", "series_index": "1"})
+    write_metadata(
+        tmp_path / "book.epub",
+        {
+            "title": "Dune",
+            "authors": "Frank Herbert",
+            "series": "Dune Chronicles",
+            "series_index": "1",
+        },
+    )
     cmd = run_mock.call_args[0][0]
     assert "--title" in cmd
     assert "Dune" in cmd
