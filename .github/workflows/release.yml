@@ -33,11 +33,12 @@ jobs:
       - name: Derive tags
         id: tags
         run: |
-          TAGS="ghcr.io/${{ github.repository }}:latest"
-          TAGS="$TAGS,ghcr.io/${{ github.repository }}:${{ github.sha }}"
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          REPO="${GITHUB_REPOSITORY,,}"
+          TAGS="ghcr.io/$REPO:latest"
+          TAGS="$TAGS,ghcr.io/$REPO:$GITHUB_SHA"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
-            TAGS="$TAGS,ghcr.io/${{ github.repository }}:$TAG"
+            TAGS="$TAGS,ghcr.io/$REPO:$TAG"
           fi
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
