@@ -2,10 +2,10 @@ name: Build and Push to ghcr.io
 
 on:
   push:
-    tags:
-      - '**'
     branches:
       - main
+    tags:
+      - '**'
 
 jobs:
   build:
@@ -30,18 +30,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=latest,enable=true
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=
+      - name: Derive tags
+        id: tags
+        run: |
+          TAGS="ghcr.io/${{ github.repository }}:latest"
+          TAGS="$TAGS,ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            TAGS="$TAGS,ghcr.io/${{ github.repository }}:$TAG"
+          fi
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -49,5 +47,4 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.tags.outputs.tags }}
