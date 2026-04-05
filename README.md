@@ -1,5 +1,7 @@
 # bookin
 
+> Built with [Claude Code](https://claude.ai) + [opencode](https://opencode.ai)
+
 Drop ebooks into a folder — bookin automatically fetches metadata and cover art from Amazon via [Calibre](https://calibre-ebook.com), then organizes them into a structured output folder using a pattern you define.
 
 ## How it works
