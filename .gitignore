@@ -1,0 +1,25 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+
+# Local runtime dirs (not committed)
+input/
+output/
+
+# Local config (copy from config.yaml.example)
+config.yaml
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
