@@ -52,6 +52,20 @@ uv run bookin --config config.yaml --once
 uv run bookin --config config.yaml
 ```
 
+## Contributing
+
+**Branch workflow:** When making changes, create a new branch and commit there. Do not commit directly to `main`.
+
+```bash
+git checkout -b <branch-name>
+# make changes
+git add <files>
+git commit -m "description"
+git push -u origin <branch-name>
+```
+
+Then create a PR on GitHub. CI (lint, typecheck, tests) and the Docker build must pass before merging.
+
 ## Commands
 
 ```bash
