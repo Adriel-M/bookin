@@ -20,7 +20,6 @@ jobs:
       - run: uv run pytest
 
   build:
-    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: read
