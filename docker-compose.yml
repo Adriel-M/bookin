@@ -7,6 +7,7 @@ services:
     volumes:
       - ./input:/input          # drop ebooks here to be processed
       - ./output:/output        # organized output appears here
-      - ./config.yaml:/config/config.yaml:ro
     environment:
       - TZ=America/New_York
+      # - BOOKIN_TEMPLATE={authors}/{title}
+      # - BOOKIN_LOG_LEVEL=INFO

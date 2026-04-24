@@ -28,6 +28,7 @@ Calibre handles all template rendering and path sanitization natively — there 
 ## Key Design Decisions
 
 - **`/input` and `/output` are hardcoded constants**, not config values. They map to Docker volume mounts. Change `INPUT_DIR`/`OUTPUT_DIR` in `config.py` if needed.
+- **Configuration via environment variables** — `BOOKIN_TEMPLATE` (default: `{authors}/{title}`) and `BOOKIN_LOG_LEVEL` (default: `INFO`). No config file is used.
 - **Amazon is the only metadata source** (`--allowed-plugin Amazon` is hardcoded in `calibre.py:fetch_metadata`).
 - **Throwaway Calibre library per file** — no persistent library is maintained. Each processed file creates and deletes its own temp library.
 - **`QT_QPA_PLATFORM=offscreen`** is set in the Dockerfile. Calibre's CLI tools use Qt internally; this env var lets them run headlessly without Xvfb.
@@ -45,11 +46,8 @@ brew install --cask calibre
 # Install dependencies
 uv sync
 
-# Run one-shot (process existing files in /input and exit)
-uv run bookin --config config.yaml --once
-
 # Run daemon
-uv run bookin --config config.yaml
+uv run bookin
 ```
 
 ## Contributing
@@ -90,7 +88,7 @@ The `config.yaml` is mounted read-only at `/config/config.yaml`.
 
 - **New metadata source:** modify `calibre.py:fetch_metadata` — change `--allowed-plugin` or add a fallback call
 - **New output behaviour:** modify `processor.py:_process` — the pipeline is sequential and easy to extend
-- **New config field:** add to `Config` dataclass in `config.py`; it will be automatically picked up from `config.yaml`
+- **New config field:** add to `Config` dataclass in `config.py` and read the corresponding env var in `load_config()`
 - **New supported file type:** add the extension to `SUPPORTED_EXTENSIONS` in `config.py`
 
 ## Known Limitations

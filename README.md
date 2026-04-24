@@ -16,16 +16,13 @@ Files that fail are moved to `output/_failed/` with an `.error` sidecar describi
 ## Quick start (Docker)
 
 ```bash
-# 1. Copy and edit config
-cp config.yaml.example config.yaml
-
-# 2. Create local folders
+# 1. Create local folders
 mkdir -p input output
 
-# 3. Start
+# 2. Start
 docker compose up -d
 
-# 4. Drop an ebook in
+# 3. Drop an ebook in
 cp my-book.epub input/
 ```
 
@@ -33,13 +30,22 @@ Output appears in `./output/` organized by your template.
 
 ## Configuration
 
+Configuration is done via environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `BOOKIN_TEMPLATE` | `{authors}/{title}` | Output path template |
+| `BOOKIN_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
+
+Set them in `docker-compose.yml`:
+
 ```yaml
-# config.yaml
-template: "{authors}/{title}"
-log_level: INFO
+environment:
+  - BOOKIN_TEMPLATE={authors}/{title}
+  - BOOKIN_LOG_LEVEL=INFO
 ```
 
-The `template` field uses [Calibre Template Language](https://manual.calibre-ebook.com/template_lang.html) — the same syntax as Calibre's own "Save to disk" feature.
+The `BOOKIN_TEMPLATE` field uses [Calibre Template Language](https://manual.calibre-ebook.com/template_lang.html) — the same syntax as Calibre's own "Save to disk" feature.
 
 **Common fields:**
 
@@ -54,15 +60,15 @@ The `template` field uses [Calibre Template Language](https://manual.calibre-ebo
 
 **Template examples:**
 
-```yaml
+```
 # Author / Title
-template: "{authors}/{title}"
+{authors}/{title}
 
 # Author / Series N - Title
-template: "{authors}/{series}/{series_index} - {title}"
+{authors}/{series}/{series_index} - {title}
 
 # Flat: Author - Title
-template: "{authors} - {title}"
+{authors} - {title}
 ```
 
 ## Supported formats
@@ -80,14 +86,11 @@ brew install --cask calibre
 # Install Python dependencies
 uv sync
 
-# Run one-shot (process existing files in /input and exit)
-uv run bookin --config config.yaml --once
-
 # Run daemon (watch /input continuously)
-uv run bookin --config config.yaml
+uv run bookin
 
 # Debug logging
-uv run bookin --config config.yaml --verbose
+uv run bookin --verbose
 ```
 
 ## Commands
@@ -117,7 +120,6 @@ make run        # one-shot: process ./input/ and exit
 |---|---|
 | `./input:/input` | Drop ebooks here |
 | `./output:/output` | Organized output |
-| `./config.yaml:/config/config.yaml:ro` | Configuration |
 
 Input and output paths are fixed to `/input` and `/output` inside the container.
 
