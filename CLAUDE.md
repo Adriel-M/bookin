@@ -27,8 +27,7 @@ Calibre handles all template rendering and path sanitization natively — there 
 
 ## Key Design Decisions
 
-- **`/input` and `/output` are hardcoded constants**, not config values. They map to Docker volume mounts. Change `INPUT_DIR`/`OUTPUT_DIR` in `config.py` if needed.
-- **Configuration via environment variables** — `BOOKIN_TEMPLATE` (default: `{authors}/{title}`) and `BOOKIN_LOG_LEVEL` (default: `INFO`). No config file is used.
+- **Configuration via environment variables** — `BOOKIN_INPUT_DIR` (default: `/input`), `BOOKIN_OUTPUT_DIR` (default: `/output`), `BOOKIN_TEMPLATE` (default: series-aware template), and `BOOKIN_LOG_LEVEL` (default: `INFO`). No config file is used.
 - **Amazon is the only metadata source** (`--allowed-plugin Amazon` is hardcoded in `calibre.py:fetch_metadata`).
 - **Throwaway Calibre library per file** — no persistent library is maintained. Each processed file creates and deletes its own temp library.
 - **`QT_QPA_PLATFORM=offscreen`** is set in the Dockerfile. Calibre's CLI tools use Qt internally; this env var lets them run headlessly without Xvfb.
