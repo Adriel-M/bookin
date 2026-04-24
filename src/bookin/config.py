@@ -33,4 +33,6 @@ def load_config() -> Config:
             f"Invalid BOOKIN_LOG_LEVEL {log_level!r}. Must be one of {_VALID_LOG_LEVELS}"
         )
 
-    return Config(template=template, log_level=log_level, input_dir=input_dir, output_dir=output_dir)
+    return Config(
+        template=template, log_level=log_level, input_dir=input_dir, output_dir=output_dir
+    )
