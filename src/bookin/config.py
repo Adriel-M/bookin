@@ -22,6 +22,8 @@ def load_config() -> Config:
     log_level = os.environ.get("BOOKIN_LOG_LEVEL", "INFO")
 
     if log_level.upper() not in _VALID_LOG_LEVELS:
-        raise ValueError(f"Invalid BOOKIN_LOG_LEVEL {log_level!r}. Must be one of {_VALID_LOG_LEVELS}")
+        raise ValueError(
+            f"Invalid BOOKIN_LOG_LEVEL {log_level!r}. Must be one of {_VALID_LOG_LEVELS}"
+        )
 
     return Config(template=template, log_level=log_level)
