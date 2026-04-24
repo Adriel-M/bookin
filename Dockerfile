@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM debian:trixie-slim
 
 # Install Calibre from apt (handles all dependencies automatically).
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -21,4 +21,4 @@ RUN uv sync --frozen --no-dev
 COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
-ENTRYPOINT ["uv", "run", "bookin"]
+ENTRYPOINT ["/app/.venv/bin/bookin"]
