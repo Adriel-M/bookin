@@ -15,17 +15,20 @@ def epub_file(tmp_path):
 
 
 @pytest.fixture
-def cfg():
-    return Config(template="{authors}/{title}")
+def output_dir(tmp_path):
+    d = tmp_path / "output"
+    d.mkdir()
+    return d
+
+
+@pytest.fixture
+def cfg(tmp_path, output_dir):
+    return Config(template="{authors}/{title}", input_dir=tmp_path, output_dir=output_dir)
 
 
 @pytest.fixture(autouse=True)
-def patch_output_dir(tmp_path, monkeypatch):
-    """Redirect OUTPUT_DIR to a temp path so tests don't touch /output."""
-    output = tmp_path / "output"
-    output.mkdir()
-    monkeypatch.setattr("bookin.processor.OUTPUT_DIR", output)
-    return output
+def patch_output_dir(output_dir):
+    return output_dir
 
 
 def _make_calibre_mocks(mocker, *, fetch_ok=True, write_meta_ok=True, export_ok=True):

@@ -15,7 +15,7 @@ from bookin.calibre import (
     read_embedded_metadata,
     write_metadata,
 )
-from bookin.config import INPUT_DIR, OUTPUT_DIR, SUPPORTED_EXTENSIONS, Config
+from bookin.config import SUPPORTED_EXTENSIONS, Config
 
 log = logging.getLogger("bookin.processor")
 
@@ -28,7 +28,7 @@ def process_file(file: Path, cfg: Config) -> None:
         _process(file, cfg, tmp_dir)
     except Exception as exc:
         log.error("Failed to process %s: %s", file.name, exc)
-        _move_to_failed(file, exc)
+        _move_to_failed(file, exc, cfg.output_dir)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -54,18 +54,18 @@ def _process(file: Path, cfg: Config, tmp_dir: Path) -> None:
     library_dir.mkdir()
     book_id = calibredb_add(file, library_dir)
 
-    calibredb_export(book_id, cfg.template, OUTPUT_DIR, library_dir)
+    calibredb_export(book_id, cfg.template, cfg.output_dir, library_dir)
     calibredb_remove(book_id, library_dir)
 
     file.unlink()
-    _cleanup_dirs(file.parent)
+    _cleanup_dirs(file.parent, cfg.input_dir)
     log.info("Done: %s", file.name)
 
 
-def _cleanup_dirs(directory: Path) -> None:
-    """Remove directories with no eligible files bottom-up, stopping at INPUT_DIR."""
+def _cleanup_dirs(directory: Path, input_dir: Path) -> None:
+    """Remove directories with no eligible files bottom-up, stopping at input_dir."""
     current = directory
-    while current != INPUT_DIR and INPUT_DIR in current.parents:
+    while current != input_dir and input_dir in current.parents:
         has_eligible = any(
             p.suffix.lower() in SUPPORTED_EXTENSIONS for p in current.rglob("*") if p.is_file()
         )
@@ -80,9 +80,8 @@ def _cleanup_dirs(directory: Path) -> None:
         current = current.parent
 
 
-def _move_to_failed(file: Path, exc: Exception) -> None:
-    """Move a failed file to /output/_failed/ with an error sidecar."""
-    failed_dir = OUTPUT_DIR / "_failed"
+def _move_to_failed(file: Path, exc: Exception, output_dir: Path) -> None:
+    failed_dir = output_dir / "_failed"
     failed_dir.mkdir(parents=True, exist_ok=True)
 
     dest = failed_dir / file.name

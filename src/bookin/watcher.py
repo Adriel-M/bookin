@@ -16,7 +16,7 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from bookin.calibre import check_calibre
-from bookin.config import INPUT_DIR, STABILITY_WAIT, SUPPORTED_EXTENSIONS, Config
+from bookin.config import STABILITY_WAIT, SUPPORTED_EXTENSIONS, Config
 from bookin.processor import process_file
 
 log = logging.getLogger("bookin.watcher")
@@ -99,8 +99,8 @@ def run_daemon(cfg: Config) -> None:
     """Start the folder watcher daemon. Blocks until interrupted."""
     check_calibre()
 
-    INPUT_DIR.mkdir(parents=True, exist_ok=True)
-    log.info("Watching %s for ebooks...", INPUT_DIR)
+    cfg.input_dir.mkdir(parents=True, exist_ok=True)
+    log.info("Watching %s for ebooks...", cfg.input_dir)
 
     work_queue: queue.Queue[Path | None] = queue.Queue()
     handler = _BookEventHandler(work_queue)
@@ -108,13 +108,13 @@ def run_daemon(cfg: Config) -> None:
     worker_thread = threading.Thread(target=_worker, args=(work_queue, cfg), daemon=True)
     worker_thread.start()
 
-    for path in sorted(INPUT_DIR.rglob("*")):
+    for path in sorted(cfg.input_dir.rglob("*")):
         if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
             log.info("Queuing existing file: %s", path.name)
             work_queue.put(path)
 
     observer = Observer()
-    observer.schedule(handler, str(INPUT_DIR), recursive=True)
+    observer.schedule(handler, str(cfg.input_dir), recursive=True)
     observer.start()
 
     try:

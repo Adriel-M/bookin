@@ -3,7 +3,7 @@ import logging
 import click
 from rich.logging import RichHandler
 
-from bookin.config import INPUT_DIR, OUTPUT_DIR, load_config
+from bookin.config import load_config
 from bookin.watcher import run_daemon
 
 
@@ -24,7 +24,7 @@ def main(verbose: bool) -> None:
     _setup_logging(level)
 
     log = logging.getLogger("bookin")
-    log.info("Input: %s  Output: %s", INPUT_DIR, OUTPUT_DIR)
+    log.info("Input: %s  Output: %s", cfg.input_dir.resolve(), cfg.output_dir.resolve())
     log.info("Template: %s", cfg.template)
 
     run_daemon(cfg)
