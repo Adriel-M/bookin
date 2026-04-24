@@ -22,4 +22,3 @@ COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
 ENTRYPOINT ["uv", "run", "bookin"]
-CMD ["--config", "/config/config.yaml"]
