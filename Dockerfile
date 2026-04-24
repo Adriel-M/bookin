@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm
+FROM debian:trixie-slim
 
 # Install Calibre from apt (handles all dependencies automatically).
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,12 +13,10 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Install dependencies first (cached layer)
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-install-project
 
-# Copy application source
 COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
-ENTRYPOINT ["uv", "run", "bookin"]
+ENTRYPOINT ["/app/.venv/bin/bookin"]
