@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SUPPORTED_EXTENSIONS = {".epub", ".mobi", ".azw", ".azw3", ".pdf", ".djvu", ".fb2"}
-STABILITY_WAIT = 5  # seconds between size checks before processing
+STABILITY_WAIT = 5  # seconds to wait before checking a file for stability
+STABILITY_POLL = 1  # seconds between the two size reads that confirm stability
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 

@@ -16,7 +16,7 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from bookin.calibre import check_calibre
-from bookin.config import STABILITY_WAIT, SUPPORTED_EXTENSIONS, Config
+from bookin.config import STABILITY_POLL, STABILITY_WAIT, SUPPORTED_EXTENSIONS, Config
 from bookin.processor import process_file
 
 log = logging.getLogger("bookin.watcher")
@@ -63,7 +63,7 @@ class _BookEventHandler(FileSystemEventHandler):
 
         try:
             size_before = path.stat().st_size
-            time.sleep(1)
+            time.sleep(STABILITY_POLL)
             size_after = path.stat().st_size
         except OSError:
             log.warning("Could not stat %s — skipping", path.name)
