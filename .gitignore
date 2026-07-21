@@ -14,9 +14,6 @@ dist/
 input/
 output/
 
-# Local config (copy from config.yaml.example)
-config.yaml
-
 # macOS
 .DS_Store
 
