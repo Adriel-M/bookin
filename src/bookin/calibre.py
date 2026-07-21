@@ -4,8 +4,9 @@ import logging
 import re
 import shutil
 import subprocess
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+import defusedxml.ElementTree as ET
 
 from bookin.errors import CalibreCommandError, CalibreNotFoundError
 

@@ -11,6 +11,7 @@ dependencies = [
     "watchdog>=4.0",
     "click>=8.1",
     "rich>=13.0",
+    "defusedxml>=0.7",
 ]
 
 [project.scripts]
@@ -22,6 +23,7 @@ dev = [
     "pytest-mock>=3.12",
     "ruff>=0.4",
     "mypy>=1.10",
+    "types-defusedxml>=0.7",
 ]
 
 [tool.hatch.build.targets.wheel]
