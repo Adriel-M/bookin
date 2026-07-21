@@ -76,6 +76,45 @@ def test_process_file_calls_export_with_template(mocker, epub_file, cfg):
 
 
 # ---------------------------------------------------------------------------
+# Cover art
+# ---------------------------------------------------------------------------
+
+
+def test_process_file_embeds_cover_when_downloaded(mocker, epub_file, cfg):
+    _make_calibre_mocks(mocker)
+
+    # Record the cover argument (and its existence) at call time, since the temp
+    # dir holding it is cleaned up once process_file returns.
+    seen = {}
+
+    def record_write(_file, _meta, cover=None):
+        seen["cover"] = cover
+        seen["exists"] = cover is not None and cover.exists()
+
+    mocker.patch("bookin.processor.write_metadata", side_effect=record_write)
+
+    # Simulate fetch_metadata downloading the cover to the path it is given.
+    def fake_fetch(title, authors, isbn, cover_path):
+        cover_path.write_bytes(b"jpeg")
+        return "<opf/>"
+
+    mocker.patch("bookin.processor.fetch_metadata", side_effect=fake_fetch)
+    process_file(epub_file, cfg)
+
+    assert seen["cover"] is not None
+    assert seen["exists"]
+
+
+def test_process_file_no_cover_when_not_downloaded(mocker, epub_file, cfg):
+    _make_calibre_mocks(mocker)  # mocked fetch does not create a cover file
+    write_mock = mocker.patch("bookin.processor.write_metadata")
+    process_file(epub_file, cfg)
+
+    assert write_mock.called
+    assert write_mock.call_args.kwargs["cover"] is None
+
+
+# ---------------------------------------------------------------------------
 # Metadata fetch failure (best-effort — should still export)
 # ---------------------------------------------------------------------------
 

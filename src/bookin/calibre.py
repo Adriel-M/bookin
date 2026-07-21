@@ -57,9 +57,15 @@ def fetch_metadata(
     title: str | None,
     authors: str | None,
     isbn: str | None,
+    cover_path: Path | None = None,
 ) -> str | None:
-    """Fetch metadata from Amazon. Returns OPF content as a string, or None if not found."""
+    """Fetch metadata from Amazon. Returns OPF content as a string, or None if not found.
+
+    If ``cover_path`` is given, the cover image (when found) is downloaded to that path.
+    """
     cmd = ["fetch-ebook-metadata", "--allowed-plugin", "Amazon", "--opf"]
+    if cover_path is not None:
+        cmd += ["--cover", str(cover_path)]
     if isbn:
         cmd += ["--isbn", isbn]
     elif title:
@@ -117,8 +123,11 @@ def parse_opf(opf_content: str) -> dict[str, str]:
     return meta
 
 
-def write_metadata(file: Path, meta: dict[str, str]) -> None:
-    """Embed metadata into an ebook file using ebook-meta."""
+def write_metadata(file: Path, meta: dict[str, str], cover: Path | None = None) -> None:
+    """Embed metadata into an ebook file using ebook-meta.
+
+    If ``cover`` is given, the image is embedded into the file as its cover.
+    """
     cmd = ["ebook-meta", str(file)]
     if meta.get("title"):
         cmd += ["--title", meta["title"]]
@@ -134,6 +143,8 @@ def write_metadata(file: Path, meta: dict[str, str]) -> None:
         cmd += ["--series", meta["series"]]
     if meta.get("series_index"):
         cmd += ["--index", meta["series_index"]]
+    if cover:
+        cmd += ["--cover", str(cover)]
 
     result = _run(cmd, timeout=60)
     if result.returncode != 0:
