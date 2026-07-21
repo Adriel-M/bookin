@@ -43,10 +43,14 @@ def _process(file: Path, cfg: Config, tmp_dir: Path) -> None:
     authors = embedded.get("authors") or None
     isbn = embedded.get("isbn") or None
 
-    opf = fetch_metadata(title, authors, isbn)
+    # Cover is downloaded into the temp dir (never the working dir) and embedded
+    # into the file; it is discarded when tmp_dir is removed.
+    cover_path = tmp_dir / "cover.jpg"
+    opf = fetch_metadata(title, authors, isbn, cover_path)
     if opf:
         try:
-            write_metadata(file, parse_opf(opf))
+            cover = cover_path if cover_path.exists() else None
+            write_metadata(file, parse_opf(opf), cover=cover)
         except Exception as exc:
             log.warning("Could not embed metadata (continuing without): %s", exc)
 

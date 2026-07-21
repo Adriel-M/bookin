@@ -72,6 +72,21 @@ def test_fetch_metadata_uses_isbn_when_available(mocker):
     assert "9780441013593" in cmd
 
 
+def test_fetch_metadata_passes_cover_path(mocker, tmp_path):
+    run_mock = mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
+    cover = tmp_path / "cover.jpg"
+    fetch_metadata("Dune", None, None, cover)
+    cmd = run_mock.call_args[0][0]
+    assert "--cover" in cmd
+    assert str(cover) in cmd
+
+
+def test_fetch_metadata_omits_cover_when_not_requested(mocker):
+    run_mock = mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
+    fetch_metadata("Dune", None, None)
+    assert "--cover" not in run_mock.call_args[0][0]
+
+
 def test_fetch_metadata_returns_none_on_empty_output(mocker):
     mocker.patch("subprocess.run", return_value=_ok(""))
     assert fetch_metadata("Unknown", None, None) is None
@@ -140,6 +155,21 @@ def test_write_metadata_passes_fields(mocker, tmp_path):
     assert "Dune" in cmd
     assert "--series" in cmd
     assert "--index" in cmd
+
+
+def test_write_metadata_embeds_cover_when_given(mocker, tmp_path):
+    run_mock = mocker.patch("subprocess.run", return_value=_ok())
+    cover = tmp_path / "cover.jpg"
+    write_metadata(tmp_path / "book.epub", {"title": "Dune"}, cover=cover)
+    cmd = run_mock.call_args[0][0]
+    assert "--cover" in cmd
+    assert str(cover) in cmd
+
+
+def test_write_metadata_omits_cover_when_absent(mocker, tmp_path):
+    run_mock = mocker.patch("subprocess.run", return_value=_ok())
+    write_metadata(tmp_path / "book.epub", {"title": "Dune"})
+    assert "--cover" not in run_mock.call_args[0][0]
 
 
 def test_write_metadata_raises_on_failure(mocker, tmp_path):
