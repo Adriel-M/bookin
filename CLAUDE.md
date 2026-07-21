@@ -6,7 +6,7 @@ Ebook folder watcher and organizer. Watches `/input` for new ebook files, fetche
 
 ```
 src/bookin/
-├── cli.py        # Click entry point: --config, --once, --verbose
+├── cli.py        # Click entry point: --verbose
 ├── config.py     # Config dataclass; INPUT_DIR/OUTPUT_DIR constants
 ├── watcher.py    # watchdog daemon with file stability check + worker queue
 ├── processor.py  # Per-file pipeline: add → fetch → set_metadata → export → delete
@@ -81,7 +81,7 @@ docker compose up --build  # build and start
 # drop ebooks into ./input/ — output appears in ./output/
 ```
 
-The `config.yaml` is mounted read-only at `/config/config.yaml`.
+Configuration is entirely via environment variables (see Key Design Decisions) — no config file is mounted.
 
 ## Adding Features
 
