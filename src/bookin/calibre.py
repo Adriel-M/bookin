@@ -265,7 +265,10 @@ def read_embedded_metadata(file: Path) -> dict[str, str]:
         if key == "title":
             meta["title"] = value
         elif key in ("author(s)", "authors"):
-            meta["authors"] = value
+            # ebook-meta appends the author-sort in brackets, e.g.
+            # "Matt Dinniman [Dinniman, Matt]" — drop it so the value is just
+            # the display name(s) and doesn't pollute the metadata query.
+            meta["authors"] = re.sub(r"\s*\[[^\]]*\]", "", value).strip()
         elif key == "isbn":
             meta["isbn"] = value
 
