@@ -1,15 +1,17 @@
-FROM debian:trixie-slim
+# Calibre (CLI tools: calibredb, ebook-meta, fetch-ebook-metadata) comes
+# pre-installed and stays close to upstream — no apt install of Calibre here.
+FROM lscr.io/linuxserver/calibre:latest
 
-# Install Calibre from apt (handles all dependencies automatically).
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    calibre \
-    && rm -rf /var/lib/apt/lists/*
-
-# Tell Qt to use the offscreen platform — no X11 display needed.
+# Calibre's CLI tools use Qt internally; run them headless without a display.
 ENV QT_QPA_PLATFORM=offscreen
+# Give the Calibre tools a writable HOME for their config/cache.
+ENV HOME=/tmp
 
-# Install uv
+# uv manages its own standalone Python, so we don't depend on the base image's
+# interpreter. This keeps the app env self-contained across base-image updates.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python \
+    UV_PROJECT_ENVIRONMENT=/app/.venv
 
 WORKDIR /app
 
@@ -19,4 +21,5 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
+# Bypass the base image's s6 init (/init) — bookin is the only process we run.
 ENTRYPOINT ["/app/.venv/bin/bookin"]
