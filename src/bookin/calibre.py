@@ -62,21 +62,41 @@ def fetch_metadata(
     cmd = ["fetch-ebook-metadata", "--allowed-plugin", "Amazon", "--opf"]
     if isbn:
         cmd += ["--isbn", isbn]
+        query = f"isbn={isbn!r}"
     elif title:
         cmd += ["--title", title]
+        query = f"title={title!r}"
         if authors:
             cmd += ["--authors", authors]
+            query += f" authors={authors!r}"
     else:
         log.warning("No title, author, or ISBN — skipping metadata fetch")
         return None
 
+    log.info("Querying Amazon: %s", query)
     result = _run(cmd, timeout=120)
 
-    if result.returncode != 0 or not result.stdout.strip():
-        log.warning("fetch-ebook-metadata returned no results: %s", result.stderr.strip())
+    stderr = result.stderr.strip()
+    if result.returncode != 0:
+        log.warning(
+            "Amazon lookup failed (exit %d) for %s: %s",
+            result.returncode,
+            query,
+            stderr or "<no stderr>",
+        )
         return None
 
-    log.debug("Fetched metadata for %r", title)
+    if not result.stdout.strip():
+        # Exit 0 with no output means the plugin ran but found no matching book.
+        log.warning(
+            "Amazon found no match for %s%s",
+            query,
+            f" (stderr: {stderr})" if stderr else "",
+        )
+        return None
+
+    log.info("Amazon returned metadata for %s", query)
+    log.debug("OPF payload:\n%s", result.stdout)
     return result.stdout
 
 
