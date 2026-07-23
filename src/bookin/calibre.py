@@ -64,7 +64,9 @@ def fetch_metadata(
 
     If ``cover_path`` is given, the cover image (when found) is downloaded to that path.
     """
-    cmd = ["fetch-ebook-metadata", "--allowed-plugin", "Amazon", "--opf"]
+    # The plugin is named "Amazon.com" in Calibre; "--allowed-plugin Amazon"
+    # matches nothing (no substring match) and silently returns no results.
+    cmd = ["fetch-ebook-metadata", "--allowed-plugin", "Amazon.com", "--opf"]
     if cover_path is not None:
         cmd += ["--cover", str(cover_path)]
     if isbn:
