@@ -1,9 +1,13 @@
 """Thin subprocess wrappers around Calibre CLI tools."""
 
+import atexit
+import json
 import logging
+import os
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import defusedxml.ElementTree as ET
@@ -11,6 +15,37 @@ import defusedxml.ElementTree as ET
 from bookin.errors import CalibreCommandError, CalibreNotFoundError
 
 log = logging.getLogger("bookin.calibre")
+
+# Metadata source. The Hardcover plugin is third-party, so it is baked into the
+# image as a zip and installed at startup (see configure_hardcover). The zip
+# path is overridable for local development.
+HARDCOVER_PLUGIN_NAME = "Hardcover"
+HARDCOVER_PLUGIN_ZIP = os.environ.get("BOOKIN_HARDCOVER_PLUGIN", "/opt/hardcover.zip")
+
+
+def configure_hardcover(token: str) -> None:
+    """Install the Hardcover metadata plugin and seed its API token.
+
+    Creates a throwaway ``CALIBRE_CONFIG_DIRECTORY`` (exported into the
+    environment so every Calibre subprocess inherits it), installs the plugin
+    into it, and writes the API token to the plugin's on-disk config.
+
+    The token is written *only* to that config file — it is never logged and
+    never passed on a command line (so it can't leak via log output or a
+    process listing).
+    """
+    cfg_dir = tempfile.mkdtemp(prefix="bookin_calibre_")
+    os.environ["CALIBRE_CONFIG_DIRECTORY"] = cfg_dir
+    atexit.register(shutil.rmtree, cfg_dir, ignore_errors=True)
+
+    result = _run(["calibre-customize", "-a", HARDCOVER_PLUGIN_ZIP])
+    if result.returncode != 0:
+        raise CalibreCommandError(f"Failed to install Hardcover plugin:\n{result.stderr}")
+
+    sources_dir = Path(cfg_dir) / "metadata_sources"
+    sources_dir.mkdir(parents=True, exist_ok=True)
+    (sources_dir / f"{HARDCOVER_PLUGIN_NAME}.json").write_text(json.dumps({"api_key": token}))
+    log.info("Hardcover metadata source configured")
 
 
 def _run(cmd: list[str], timeout: int = 120) -> subprocess.CompletedProcess[str]:
@@ -60,13 +95,12 @@ def fetch_metadata(
     isbn: str | None,
     cover_path: Path | None = None,
 ) -> str | None:
-    """Fetch metadata from Amazon. Returns OPF content as a string, or None if not found.
+    """Fetch metadata from Hardcover. Returns OPF content as a string, or None if not found.
 
     If ``cover_path`` is given, the cover image (when found) is downloaded to that path.
+    Requires the Hardcover plugin to have been configured via configure_hardcover.
     """
-    # The plugin is named "Amazon.com" in Calibre; "--allowed-plugin Amazon"
-    # matches nothing (no substring match) and silently returns no results.
-    cmd = ["fetch-ebook-metadata", "--allowed-plugin", "Amazon.com", "--opf"]
+    cmd = ["fetch-ebook-metadata", "--allowed-plugin", HARDCOVER_PLUGIN_NAME, "--opf"]
     if cover_path is not None:
         cmd += ["--cover", str(cover_path)]
     if isbn:
@@ -82,13 +116,13 @@ def fetch_metadata(
         log.warning("No title, author, or ISBN — skipping metadata fetch")
         return None
 
-    log.info("Querying Amazon: %s", query)
+    log.info("Querying Hardcover: %s", query)
     result = _run(cmd, timeout=120)
 
     stderr = result.stderr.strip()
     if result.returncode != 0:
         log.warning(
-            "Amazon lookup failed (exit %d) for %s: %s",
+            "Hardcover lookup failed (exit %d) for %s: %s",
             result.returncode,
             query,
             stderr or "<no stderr>",
@@ -98,13 +132,13 @@ def fetch_metadata(
     if not result.stdout.strip():
         # Exit 0 with no output means the plugin ran but found no matching book.
         log.warning(
-            "Amazon found no match for %s%s",
+            "Hardcover found no match for %s%s",
             query,
             f" (stderr: {stderr})" if stderr else "",
         )
         return None
 
-    log.info("Amazon returned metadata for %s", query)
+    log.info("Hardcover returned metadata for %s", query)
     log.debug("OPF payload:\n%s", result.stdout)
     return result.stdout
 

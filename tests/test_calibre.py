@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from bookin.calibre import (
     calibredb_add,
     calibredb_export,
     calibredb_remove,
+    configure_hardcover,
     fetch_metadata,
     parse_opf,
     read_embedded_metadata,
@@ -94,6 +96,65 @@ def test_fetch_metadata_returns_none_on_empty_output(mocker):
 
 def test_fetch_metadata_returns_none_with_no_search_terms(mocker):
     assert fetch_metadata(None, None, None) is None
+
+
+def test_fetch_metadata_uses_hardcover_plugin(mocker):
+    run_mock = mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
+    fetch_metadata("Dune", None, None)
+    cmd = run_mock.call_args[0][0]
+    assert cmd[:3] == ["fetch-ebook-metadata", "--allowed-plugin", "Hardcover"]
+    assert "Amazon.com" not in cmd
+
+
+# ---------------------------------------------------------------------------
+# configure_hardcover
+# ---------------------------------------------------------------------------
+
+SECRET_TOKEN = "hc_super_secret_abc123"
+
+
+def test_configure_hardcover_seeds_token_file(mocker, tmp_path):
+    mocker.patch("tempfile.mkdtemp", return_value=str(tmp_path))
+    mocker.patch("atexit.register")
+    mocker.patch("subprocess.run", return_value=_ok())  # calibre-customize ok
+    mocker.patch.dict("os.environ", {}, clear=False)
+
+    configure_hardcover(SECRET_TOKEN)
+
+    cfg = tmp_path / "metadata_sources" / "Hardcover.json"
+    assert cfg.exists()
+    assert json.loads(cfg.read_text()) == {"api_key": SECRET_TOKEN}
+    import os
+
+    assert os.environ["CALIBRE_CONFIG_DIRECTORY"] == str(tmp_path)
+
+
+def test_configure_hardcover_never_logs_token(mocker, tmp_path, caplog):
+    import logging
+
+    mocker.patch("tempfile.mkdtemp", return_value=str(tmp_path))
+    mocker.patch("atexit.register")
+    run_mock = mocker.patch("subprocess.run", return_value=_ok())
+    mocker.patch.dict("os.environ", {}, clear=False)
+
+    with caplog.at_level(logging.DEBUG):
+        configure_hardcover(SECRET_TOKEN)
+
+    # The token must not appear anywhere in log output...
+    assert SECRET_TOKEN not in caplog.text
+    # ...nor on any command line handed to a subprocess.
+    for call in run_mock.call_args_list:
+        assert SECRET_TOKEN not in call.args[0]
+
+
+def test_configure_hardcover_raises_if_install_fails(mocker, tmp_path):
+    mocker.patch("tempfile.mkdtemp", return_value=str(tmp_path))
+    mocker.patch("atexit.register")
+    mocker.patch("subprocess.run", return_value=_ok(returncode=1, stderr="boom"))
+    mocker.patch.dict("os.environ", {}, clear=False)
+
+    with pytest.raises(CalibreCommandError):
+        configure_hardcover(SECRET_TOKEN)
 
 
 # ---------------------------------------------------------------------------
