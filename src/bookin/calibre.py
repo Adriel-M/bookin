@@ -195,7 +195,9 @@ def write_metadata(file: Path, meta: dict[str, str], cover: Path | None = None) 
     if meta.get("publisher"):
         cmd += ["--publisher", meta["publisher"]]
     if meta.get("pubdate"):
-        cmd += ["--pubdate", meta["pubdate"]]
+        # ebook-meta's flag for the published date is --date (--pubdate is a
+        # calibredb option and makes ebook-meta error out).
+        cmd += ["--date", meta["pubdate"]]
     if meta.get("series"):
         cmd += ["--series", meta["series"]]
     if meta.get("series_index"):
