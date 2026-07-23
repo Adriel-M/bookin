@@ -4,6 +4,7 @@ import click
 from rich.logging import RichHandler
 
 from bookin.config import load_config
+from bookin.version import get_commit
 from bookin.watcher import run_daemon
 
 
@@ -24,6 +25,7 @@ def main(verbose: bool) -> None:
     _setup_logging(level)
 
     log = logging.getLogger("bookin")
+    log.info("Starting bookin (commit %s)", get_commit())
     log.info("Input: %s  Output: %s", cfg.input_dir.resolve(), cfg.output_dir.resolve())
     log.info("Template: %s", cfg.template)
 
