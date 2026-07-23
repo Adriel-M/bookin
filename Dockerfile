@@ -21,5 +21,11 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY src/ ./src/
 RUN uv sync --frozen --no-dev
 
+# Bake the build's commit hash for startup logging (CI sets this to the git
+# SHA). Placed last so it doesn't invalidate the cached layers above on every
+# commit — only this trivial ENV layer changes.
+ARG BOOKIN_COMMIT=unknown
+ENV BOOKIN_COMMIT=$BOOKIN_COMMIT
+
 # Bypass the base image's s6 init (/init) — bookin is the only process we run.
 ENTRYPOINT ["/app/.venv/bin/bookin"]
