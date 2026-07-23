@@ -218,6 +218,16 @@ def test_write_metadata_passes_fields(mocker, tmp_path):
     assert "--index" in cmd
 
 
+def test_write_metadata_pubdate_uses_date_flag(mocker, tmp_path):
+    run_mock = mocker.patch("subprocess.run", return_value=_ok())
+    write_metadata(tmp_path / "book.epub", {"title": "Dune", "pubdate": "1965-08-01"})
+    cmd = run_mock.call_args[0][0]
+    # ebook-meta has no --pubdate option; the published date must use --date.
+    assert "--date" in cmd
+    assert "1965-08-01" in cmd
+    assert "--pubdate" not in cmd
+
+
 def test_write_metadata_embeds_cover_when_given(mocker, tmp_path):
     run_mock = mocker.patch("subprocess.run", return_value=_ok())
     cover = tmp_path / "cover.jpg"
