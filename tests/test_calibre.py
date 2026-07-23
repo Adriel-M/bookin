@@ -310,3 +310,23 @@ def test_read_embedded_metadata_returns_empty_on_missing_fields(mocker):
     assert meta["title"] == "Only Title"
     assert meta["authors"] == ""
     assert meta["isbn"] == ""
+
+
+def test_read_embedded_metadata_strips_author_sort(mocker):
+    mocker.patch(
+        "subprocess.run",
+        return_value=_ok("Author(s)           : Matt Dinniman [Dinniman, Matt]\n"),
+    )
+    meta = read_embedded_metadata(Path("dummy.epub"))
+    assert meta["authors"] == "Matt Dinniman"
+
+
+def test_read_embedded_metadata_strips_sort_for_multiple_authors(mocker):
+    mocker.patch(
+        "subprocess.run",
+        return_value=_ok(
+            "Author(s) : Neil Gaiman & Terry Pratchett [Gaiman, Neil & Pratchett, Terry]\n"
+        ),
+    )
+    meta = read_embedded_metadata(Path("dummy.epub"))
+    assert meta["authors"] == "Neil Gaiman & Terry Pratchett"
