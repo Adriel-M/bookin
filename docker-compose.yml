@@ -9,9 +9,9 @@ services:
       - ./output:/output        # organized output appears here
     environment:
       - TZ=America/New_York
-      # Hardcover API token (from https://hardcover.app/account/api). Required
-      # for metadata enrichment; without it books are organized using embedded
-      # metadata only. Keep it in a .env file, not committed.
+      # Hardcover API token (from https://hardcover.app/account/api). REQUIRED:
+      # it is the only metadata source, and startup fails if it is missing or
+      # rejected. Keep it in a .env file, not committed.
       - BOOKIN_HARDCOVER_TOKEN=${BOOKIN_HARDCOVER_TOKEN}
       # - BOOKIN_TEMPLATE={authors}/{title}
       # - BOOKIN_LOG_LEVEL=INFO

@@ -6,6 +6,8 @@ from rich.logging import RichHandler
 
 from bookin.calibre import configure_hardcover
 from bookin.config import load_config
+from bookin.errors import MetadataFetchError
+from bookin.hardcover import verify_token
 from bookin.version import get_commit
 from bookin.watcher import run_daemon
 
@@ -31,15 +33,19 @@ def main(verbose: bool) -> None:
     log.info("Input: %s  Output: %s", cfg.input_dir.resolve(), cfg.output_dir.resolve())
     log.info("Template: %s", cfg.template)
 
-    # Read the Hardcover token straight from the environment (never stored on
-    # Config, so it can't leak via a repr) and hand it to the plugin setup.
+    # Hardcover is the only metadata source and needs a token. Read it straight
+    # from the environment (never stored on Config, so it can't leak via a repr)
+    # and fail fast if it's missing or rejected before starting the daemon.
     token = os.environ.get("BOOKIN_HARDCOVER_TOKEN")
-    if token:
-        configure_hardcover(token)
-    else:
-        log.warning(
-            "BOOKIN_HARDCOVER_TOKEN not set — metadata enrichment is disabled; "
-            "files will be organized using embedded metadata only"
+    if not token:
+        raise click.ClickException(
+            "BOOKIN_HARDCOVER_TOKEN is required — Hardcover is the only metadata "
+            "source. Get a token at https://hardcover.app/account/api"
         )
+    try:
+        verify_token(token)
+    except MetadataFetchError as err:
+        raise click.ClickException(str(err)) from err
+    configure_hardcover(token)
 
     run_daemon(cfg)
