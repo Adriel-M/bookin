@@ -13,5 +13,5 @@ services:
       # it is the only metadata source, and startup fails if it is missing or
       # rejected. Keep it in a .env file, not committed.
       - BOOKIN_HARDCOVER_TOKEN=${BOOKIN_HARDCOVER_TOKEN}
-      # - BOOKIN_TEMPLATE={authors}/{title}
+      # - BOOKIN_TEMPLATE={authors} - {title}
       # - BOOKIN_LOG_LEVEL=INFO

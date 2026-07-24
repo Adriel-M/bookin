@@ -19,8 +19,8 @@ Files that fail are moved to `output/_failed/` with an `.error` sidecar describi
 # 1. Create local folders
 mkdir -p input output
 
-# 2. Set your Hardcover API token (required)
-export BOOKIN_HARDCOVER_TOKEN=your-token-here
+# 2. Set your Hardcover API token (required) in a .env file
+echo "BOOKIN_HARDCOVER_TOKEN=your-token-here" > .env
 
 # 3. Start
 docker compose up -d
@@ -45,13 +45,14 @@ Configuration is done via environment variables:
 
 `BOOKIN_HARDCOVER_TOKEN` is required — the daemon makes one authenticated call to Hardcover at startup and exits with a clear error if the token is missing or rejected.
 
-Set them in `docker-compose.yml`:
+Set them in the `environment:` section of `docker-compose.yml`. The token is
+kept out of the file and read from a `.env` (not committed):
 
 ```yaml
 environment:
-  - BOOKIN_HARDCOVER_TOKEN=your-token-here
-  - BOOKIN_TEMPLATE={authors} - {title}
-  - BOOKIN_LOG_LEVEL=INFO
+  - BOOKIN_HARDCOVER_TOKEN=${BOOKIN_HARDCOVER_TOKEN}   # from .env
+  # - BOOKIN_TEMPLATE={authors} - {title}
+  # - BOOKIN_LOG_LEVEL=INFO
 ```
 
 The `BOOKIN_TEMPLATE` field uses [Calibre Template Language](https://manual.calibre-ebook.com/template_lang.html) — the same syntax as Calibre's own "Save to disk" feature.
