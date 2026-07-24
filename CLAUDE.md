@@ -9,25 +9,27 @@ src/bookin/
 ├── cli.py        # Click entry point: --verbose
 ├── config.py     # Config dataclass; INPUT_DIR/OUTPUT_DIR constants
 ├── watcher.py    # watchdog daemon with file stability check + worker queue
-├── processor.py  # Per-file pipeline: add → fetch → set_metadata → export → delete
-├── calibre.py    # Subprocess wrappers for calibredb and fetch-ebook-metadata
+├── processor.py  # Per-file pipeline: read → fetch → embed → add → export → delete
+├── calibre.py    # Subprocess wrappers for calibredb, ebook-meta, and fetch-ebook-metadata
+├── hardcover.py  # Direct Hardcover API call to validate the token at startup
 └── errors.py     # Exception hierarchy
 ```
 
 **Processing pipeline** (one file):
-1. `calibredb add` → throwaway temp library
-2. `ebook-meta` → read embedded metadata (title, authors, ISBN)
-3. `fetch-ebook-metadata --allowed-plugin Hardcover` → enrich + download cover (best-effort)
-4. `calibredb set_metadata` → apply to library record
+1. `ebook-meta` → read embedded metadata (title, authors, ISBN)
+2. `fetch-ebook-metadata --allowed-plugin Hardcover` → enrich + download cover into temp dir (best-effort)
+3. `ebook-meta` → embed the fetched metadata and cover into the file (best-effort)
+4. `calibredb add` → throwaway temp library
 5. `calibredb export --template <cfg.template>` → write to `/output`
-6. Delete source file from `/input`
-7. `shutil.rmtree` temp library
+6. `calibredb remove` → drop the record from the temp library
+7. Delete source file from `/input` (and prune emptied input subdirectories)
+8. `shutil.rmtree` temp library
 
 Calibre handles all template rendering and path sanitization natively — there is no custom template engine in this project.
 
 ## Key Design Decisions
 
-- **Configuration via environment variables** — `BOOKIN_INPUT_DIR` (default: `/input`), `BOOKIN_OUTPUT_DIR` (default: `/output`), `BOOKIN_TEMPLATE` (default: series-aware template), `BOOKIN_LOG_LEVEL` (default: `INFO`), and `BOOKIN_HARDCOVER_TOKEN` (the Hardcover API key; no default). No config file is used.
+- **Configuration via environment variables** — `BOOKIN_INPUT_DIR` (default: `/input`), `BOOKIN_OUTPUT_DIR` (default: `/output`), `BOOKIN_TEMPLATE` (default: `{authors} - {title}`), `BOOKIN_LOG_LEVEL` (default: `INFO`), and `BOOKIN_HARDCOVER_TOKEN` (the Hardcover API key; no default). No config file is used.
 - **Hardcover is the only metadata source** (`--allowed-plugin Hardcover` is hardcoded in `calibre.py:fetch_metadata`). The [Hardcover plugin](https://github.com/RobBrazier/calibre-plugins) is third-party: it is baked into the image as a zip (`/opt/hardcover.zip`, Dockerfile) and installed at startup by `configure_hardcover`, which also seeds the API token. Unlike Amazon/Google, it uses a real API (not search-engine scraping), so it works in a container.
 - **The Hardcover API token is required and validated at startup** — supplied via `BOOKIN_HARDCOVER_TOKEN`, read straight from the environment (never stored on `Config`). `hardcover.verify_token` makes one minimal authenticated call (`me { id }`) before the daemon starts; a missing token or a 401/403 rejection is fatal (clear error, non-zero exit). If Hardcover is unreachable, validation warns and continues. The token is written only to the plugin's on-disk config in a throwaway `CALIBRE_CONFIG_DIRECTORY`, and is never logged nor passed on a command line.
 - **Throwaway Calibre library per file** — no persistent library is maintained. Each processed file creates and deletes its own temp library.

@@ -2,12 +2,12 @@
 
 > Built with [Claude Code](https://claude.ai) + [opencode](https://opencode.ai)
 
-Drop ebooks into a folder — bookin automatically fetches metadata and cover art from Amazon via [Calibre](https://calibre-ebook.com), then organizes them into a structured output folder using a pattern you define.
+Drop ebooks into a folder — bookin automatically fetches metadata and cover art from [Hardcover](https://hardcover.app) via [Calibre](https://calibre-ebook.com), then organizes them into a structured output folder using a pattern you define.
 
 ## How it works
 
 1. Drop an ebook (`.epub`, `.mobi`, `.azw3`, `.pdf`, etc.) into the input folder
-2. bookin detects the new file, reads its embedded metadata, and queries Amazon for enriched metadata + cover
+2. bookin detects the new file, reads its embedded metadata, and queries Hardcover for enriched metadata + cover
 3. The book is exported to the output folder using your configured template (e.g. `{authors}/{title}`)
 4. The source file is removed from the input folder
 
@@ -19,10 +19,13 @@ Files that fail are moved to `output/_failed/` with an `.error` sidecar describi
 # 1. Create local folders
 mkdir -p input output
 
-# 2. Start
+# 2. Set your Hardcover API token (required)
+export BOOKIN_HARDCOVER_TOKEN=your-token-here
+
+# 3. Start
 docker compose up -d
 
-# 3. Drop an ebook in
+# 4. Drop an ebook in
 cp my-book.epub input/
 ```
 
@@ -34,14 +37,20 @@ Configuration is done via environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `BOOKIN_TEMPLATE` | `{authors}/{title}` | Output path template |
+| `BOOKIN_HARDCOVER_TOKEN` | _(required)_ | Hardcover API token; validated at startup |
+| `BOOKIN_TEMPLATE` | `{authors} - {title}` | Output path template |
 | `BOOKIN_LOG_LEVEL` | `INFO` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`) |
+| `BOOKIN_INPUT_DIR` | `/input` | Directory watched for new ebooks |
+| `BOOKIN_OUTPUT_DIR` | `/output` | Directory organized output is written to |
+
+`BOOKIN_HARDCOVER_TOKEN` is required — the daemon makes one authenticated call to Hardcover at startup and exits with a clear error if the token is missing or rejected.
 
 Set them in `docker-compose.yml`:
 
 ```yaml
 environment:
-  - BOOKIN_TEMPLATE={authors}/{title}
+  - BOOKIN_HARDCOVER_TOKEN=your-token-here
+  - BOOKIN_TEMPLATE={authors} - {title}
   - BOOKIN_LOG_LEVEL=INFO
 ```
 

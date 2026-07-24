@@ -8,11 +8,7 @@ STABILITY_POLL = 1  # seconds between the two size reads that confirm stability
 
 _VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 
-_DEFAULT_TEMPLATE = (
-    'program: if field("series") then field("series") & "/" &'
-    ' format_number(field("series_index"), "02.0f") & " - " & field("title") & " - " &'
-    ' field("authors") else field("title") & " - " & field("authors") fi'
-)
+_DEFAULT_TEMPLATE = "{authors} - {title}"
 
 
 @dataclass
