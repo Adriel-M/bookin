@@ -14,6 +14,7 @@ from bookin.calibre import (
     write_metadata,
 )
 from bookin.config import SUPPORTED_EXTENSIONS, Config
+from bookin.errors import ProcessingError
 from bookin.hardcover import fetch_metadata
 
 log = logging.getLogger("bookin.processor")
@@ -57,12 +58,55 @@ def _process(file: Path, cfg: Config, tmp_dir: Path) -> None:
     library_dir.mkdir()
     book_id = calibredb_add(file, library_dir)
 
-    calibredb_export(book_id, cfg.template, cfg.output_dir, library_dir)
+    _export(book_id, cfg, library_dir)
     calibredb_remove(book_id, library_dir)
 
     file.unlink()
     _cleanup_dirs(file.parent, cfg.input_dir)
     log.info("Done: %s", file.name)
+
+
+def _export(book_id: int, cfg: Config, library_dir: Path) -> list[Path]:
+    """Export a book into the output directory without ever overwriting.
+
+    Calibre renders the template and sanitizes the path itself, so the final
+    filename isn't known until after the export runs. Exporting into a staging
+    directory first lets us see what it produced and place those files
+    deliberately.
+
+    The staging directory lives inside output_dir so the moves are same-device
+    renames rather than copies of a potentially very large book.
+    """
+    staging = Path(tempfile.mkdtemp(prefix=".bookin-staging-", dir=cfg.output_dir))
+    try:
+        calibredb_export(book_id, cfg.template, staging, library_dir)
+
+        produced = sorted(p for p in staging.rglob("*") if p.is_file())
+        if not produced:
+            raise ProcessingError("calibredb export produced no files")
+
+        # Resolve every destination before moving anything, so a collision on
+        # the second file can't leave the book half-exported.
+        moves = []
+        for src in produced:
+            relative = src.relative_to(staging)
+            dest = cfg.output_dir / relative
+            if dest.exists():
+                raise ProcessingError(
+                    f"{relative} already exists in the output directory — refusing to "
+                    "overwrite it. Two books resolved to the same output path; check "
+                    "their metadata, or use a BOOKIN_TEMPLATE that distinguishes them "
+                    "(e.g. one including {series_index} or {isbn})."
+                )
+            moves.append((src, dest))
+
+        for src, dest in moves:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), dest)
+
+        return [dest for _, dest in moves]
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 def _cleanup_dirs(directory: Path, input_dir: Path) -> None:

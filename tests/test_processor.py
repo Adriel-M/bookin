@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -31,7 +32,14 @@ def patch_output_dir(output_dir):
     return output_dir
 
 
-def _make_calibre_mocks(mocker, *, fetch_ok=True, write_meta_ok=True, export_ok=True):
+def _make_calibre_mocks(
+    mocker,
+    *,
+    fetch_ok=True,
+    write_meta_ok=True,
+    export_ok=True,
+    export_name="Frank Herbert/Dune.epub",
+):
     mocker.patch("bookin.processor.calibredb_add", return_value=1)
     mocker.patch(
         "bookin.processor.read_embedded_metadata",
@@ -47,9 +55,22 @@ def _make_calibre_mocks(mocker, *, fetch_ok=True, write_meta_ok=True, export_ok=
     )
     mocker.patch(
         "bookin.processor.calibredb_export",
-        side_effect=None if export_ok else CalibreCommandError("export failed"),
+        side_effect=_fake_export(export_name)
+        if export_ok
+        else CalibreCommandError("export failed"),
     )
     mocker.patch("bookin.processor.calibredb_remove")
+
+
+def _fake_export(name="Frank Herbert/Dune.epub"):
+    """Stand in for calibredb, which renders the template into dest_dir itself."""
+
+    def export(_book_id, _template, dest_dir, _library):
+        target = Path(dest_dir) / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"exported epub")
+
+    return export
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +171,72 @@ def test_process_file_source_not_deleted_on_failure(mocker, epub_file, cfg):
     _make_calibre_mocks(mocker, export_ok=False)
     process_file(epub_file, cfg)
     assert not epub_file.exists()  # moved to _failed
+
+
+# ---------------------------------------------------------------------------
+# Output placement and collisions
+# ---------------------------------------------------------------------------
+
+
+def test_process_file_places_export_under_output_dir(mocker, epub_file, cfg, output_dir):
+    _make_calibre_mocks(mocker)
+    process_file(epub_file, cfg)
+
+    exported = output_dir / "Frank Herbert" / "Dune.epub"
+    assert exported.exists(), "Template subdirectories must be preserved"
+    assert exported.read_bytes() == b"exported epub"
+
+
+def test_process_file_leaves_no_staging_dir_behind(mocker, epub_file, cfg, output_dir):
+    _make_calibre_mocks(mocker)
+    process_file(epub_file, cfg)
+    assert not list(output_dir.glob(".bookin-staging-*"))
+
+
+def test_process_file_refuses_to_overwrite_an_existing_export(mocker, epub_file, cfg, output_dir):
+    # A second book resolving to the same output path must not clobber the
+    # first: that silently destroyed a book, and the source is deleted after a
+    # "successful" export, so the loss was unrecoverable.
+    existing = output_dir / "Frank Herbert" / "Dune.epub"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"the first book")
+
+    _make_calibre_mocks(mocker)
+    process_file(epub_file, cfg)
+
+    assert existing.read_bytes() == b"the first book", "Existing export was overwritten"
+    failed = output_dir / "_failed"
+    assert len(list(failed.glob("*.epub"))) == 1, "Colliding book should be dead-lettered"
+
+
+def test_collision_error_names_the_conflicting_path(mocker, epub_file, cfg, output_dir, caplog):
+    existing = output_dir / "Frank Herbert" / "Dune.epub"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"the first book")
+
+    _make_calibre_mocks(mocker)
+    with caplog.at_level(logging.INFO):
+        process_file(epub_file, cfg)
+
+    sidecar = next((output_dir / "_failed").glob("*.error"))
+    assert "Dune.epub" in sidecar.read_text()
+    assert "already exists" in caplog.text
+
+
+def test_process_file_fails_when_export_produces_nothing(mocker, epub_file, cfg, output_dir):
+    # calibredb exiting 0 without writing anything must not be mistaken for
+    # success, or the source file would be deleted with no export to show.
+    mocker.patch("bookin.processor.calibredb_add", return_value=1)
+    mocker.patch(
+        "bookin.processor.read_embedded_metadata",
+        return_value={"title": "Dune", "authors": "Frank Herbert", "isbn": ""},
+    )
+    mocker.patch("bookin.processor.fetch_metadata", return_value=None)
+    mocker.patch("bookin.processor.calibredb_export")  # writes no files
+    mocker.patch("bookin.processor.calibredb_remove")
+
+    process_file(epub_file, cfg)
+    assert len(list((output_dir / "_failed").glob("*.epub"))) == 1
 
 
 # ---------------------------------------------------------------------------
