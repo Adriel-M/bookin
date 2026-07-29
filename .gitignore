@@ -14,6 +14,9 @@ dist/
 input/
 output/
 
+# Holds BOOKIN_HARDCOVER_TOKEN (see README quick start)
+.env
+
 # macOS
 .DS_Store
 
