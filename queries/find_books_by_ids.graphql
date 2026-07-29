@@ -1,0 +1,28 @@
+# Hydrate search hits into full book records.
+#
+# Hasura does not preserve `_in` ordering, so the caller re-sorts these back
+# into the original search-relevance order before ranking.
+#
+# reading_format_id 1 and 4 are physical and ebook; audiobooks are excluded.
+# The language filter keeps editions with no language recorded (code3 is null)
+# so untagged editions aren't silently dropped.
+#
+# The `limit` on the editions sub-selection matters: without it a popular book
+# returns every edition it has (nearly 400 for something like The Hobbit). They
+# are ordered by users_count, so the most-owned editions are the ones kept.
+
+query FindBooksByIds($ids: [Int!], $languages: [String!]) {
+  books(where: { id: { _in: $ids } }, order_by: { users_read_count: desc_nulls_last }) {
+    ...BookFields
+    editions(
+      where: {
+        reading_format_id: { _in: [1, 4] }
+        language: { _or: [{ code3: { _in: $languages } }, { code3: { _is_null: true } }] }
+      }
+      order_by: { users_count: desc_nulls_last }
+      limit: 25
+    ) {
+      ...EditionFields
+    }
+  }
+}

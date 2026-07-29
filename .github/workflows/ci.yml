@@ -16,6 +16,14 @@ jobs:
       - run: uv run mypy src/
       - run: uv run pytest
 
+      # The Hardcover client is generated from schema/ + queries/. Regenerating
+      # must be a no-op: a diff here means either the generated code was edited
+      # by hand, or a query changed without `make codegen` being run.
+      - name: Check the generated client is up to date
+        run: |
+          make codegen
+          git diff --exit-code src/bookin/graphql_client
+
   build:
     needs: ci
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

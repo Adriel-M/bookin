@@ -1,4 +1,4 @@
-.PHONY: test lint format typecheck check fix build up down logs run
+.PHONY: test lint format typecheck check fix codegen build up down logs
 
 # ── Dev ──────────────────────────────────────────────────────────────────────
 
@@ -17,6 +17,7 @@ typecheck:
 # Run all checks (CI equivalent)
 check:
 	uv run ruff check .
+	uv run ruff format --check .
 	uv run mypy src/
 	uv run pytest
 
@@ -24,6 +25,11 @@ check:
 fix:
 	uv run ruff check . --fix
 	uv run ruff format .
+
+# Regenerate the typed Hardcover client from schema/ + queries/.
+# Run via uvx so ariadne-codegen's pinned ruff stays out of this project's env.
+codegen:
+	uvx --from ariadne-codegen==0.18.0 ariadne-codegen
 
 # ── Docker ───────────────────────────────────────────────────────────────────
 
@@ -39,8 +45,3 @@ down:
 
 logs:
 	docker compose logs -f
-
-# One-shot: process any files currently in ./input and exit (no daemon)
-run:
-	mkdir -p input output
-	docker compose run --rm bookin --config /config/config.yaml --once

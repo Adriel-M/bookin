@@ -1,0 +1,8 @@
+# Minimal authenticated call used to validate BOOKIN_HARDCOVER_TOKEN at
+# startup. Cheapest query that still proves the token is accepted.
+
+query VerifyToken {
+  me {
+    id
+  }
+}

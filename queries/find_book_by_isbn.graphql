@@ -1,0 +1,25 @@
+# ISBN fast path.
+#
+# This filters `books` *by their editions* rather than querying the `editions`
+# table directly. Starting at `editions` would put the author name at
+# editions -> book -> contributions -> author, which is depth 4 and over
+# Hardcover's limit. Filtering from the `books` root keeps every path at 3.
+#
+# The same ISBN predicate is repeated on the editions sub-selection so we get
+# back the specific edition that matched, not every edition of the book.
+
+query FindBookByIsbn($isbn: String!) {
+  books(
+    where: { editions: { _or: [{ isbn_13: { _eq: $isbn } }, { isbn_10: { _eq: $isbn } }] } }
+    limit: 5
+  ) {
+    ...BookFields
+    editions(
+      where: { _or: [{ isbn_13: { _eq: $isbn } }, { isbn_10: { _eq: $isbn } }] }
+      order_by: { users_count: desc_nulls_last }
+      limit: 5
+    ) {
+      ...EditionFields
+    }
+  }
+}

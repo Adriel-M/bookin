@@ -10,12 +10,11 @@ from bookin.calibre import (
     calibredb_add,
     calibredb_export,
     calibredb_remove,
-    fetch_metadata,
-    parse_opf,
     read_embedded_metadata,
     write_metadata,
 )
 from bookin.config import SUPPORTED_EXTENSIONS, Config
+from bookin.hardcover import fetch_metadata
 
 log = logging.getLogger("bookin.processor")
 
@@ -46,11 +45,11 @@ def _process(file: Path, cfg: Config, tmp_dir: Path) -> None:
     # Cover is downloaded into the temp dir (never the working dir) and embedded
     # into the file; it is discarded when tmp_dir is removed.
     cover_path = tmp_dir / "cover.jpg"
-    opf = fetch_metadata(title, authors, isbn, cover_path)
-    if opf:
+    fetched = fetch_metadata(title, authors, isbn, cover_path)
+    if fetched:
         try:
             cover = cover_path if cover_path.exists() else None
-            write_metadata(file, parse_opf(opf), cover=cover)
+            write_metadata(file, fetched, cover=cover)
         except Exception as exc:
             log.warning("Could not embed metadata (continuing without): %s", exc)
 
