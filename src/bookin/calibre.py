@@ -271,7 +271,31 @@ def read_embedded_metadata(file: Path) -> dict[str, str]:
             # "Matt Dinniman [Dinniman, Matt]" — drop it so the value is just
             # the display name(s) and doesn't pollute the metadata query.
             meta["authors"] = re.sub(r"\s*\[[^\]]*\]", "", value).strip()
-        elif key == "isbn":
-            meta["isbn"] = value
+        elif key == "identifiers":
+            # ebook-meta reports every identifier on one line, e.g.
+            # "Identifiers : isbn:9780525537113, amazon:0525537112". There is
+            # no bare "ISBN" line to key off, so pull it out of this list.
+            meta["isbn"] = _isbn_from_identifiers(value)
+        elif key == "isbn" and value:
+            meta["isbn"] = _normalize_isbn(value)
 
     return meta
+
+
+def _isbn_from_identifiers(value: str) -> str:
+    """Extract the ISBN from ebook-meta's comma-separated identifier list."""
+    for identifier in value.split(","):
+        scheme, _, number = identifier.strip().partition(":")
+        if scheme.strip().lower() == "isbn" and number.strip():
+            return _normalize_isbn(number)
+    return ""
+
+
+def _normalize_isbn(isbn: str) -> str:
+    """Strip formatting from an ISBN.
+
+    Files often embed the hyphenated form ("978-0-307-49846-5"), but metadata
+    sources index the plain digits, so an exact-match lookup on the raw value
+    silently finds nothing. The ISBN-10 check digit may be 'X'.
+    """
+    return re.sub(r"[^0-9Xx]", "", isbn).upper()

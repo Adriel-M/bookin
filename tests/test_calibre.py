@@ -287,12 +287,17 @@ def test_calibredb_remove_logs_warning_on_failure(mocker, tmp_path, caplog):
 # read_embedded_metadata
 # ---------------------------------------------------------------------------
 
+# Verbatim shape of real `ebook-meta` output. Identifiers are reported as one
+# comma-separated line — there is no bare "ISBN" line, which is what let the
+# ISBN lookup path sit dead behind an over-friendly test fixture.
 EBOOK_META_OUTPUT = """\
 Title               : Dune
 Author(s)           : Frank Herbert
 Publisher           : Ace Books
-ISBN                : 9780441013593
+Series              : Dune #1
+Languages           : eng
 Published           : 1965-08-01T00:00:00+00:00
+Identifiers         : isbn:9780441013593, amazon:0441013597, hardcover:dune
 """
 
 
@@ -302,6 +307,45 @@ def test_read_embedded_metadata_parses_fields(mocker):
     assert meta["title"] == "Dune"
     assert meta["authors"] == "Frank Herbert"
     assert meta["isbn"] == "9780441013593"
+
+
+def test_read_embedded_metadata_picks_isbn_out_of_identifiers(mocker):
+    # The ISBN must survive regardless of its position in the list, and the
+    # neighbouring amazon/hardcover ids must not be mistaken for it.
+    mocker.patch(
+        "subprocess.run",
+        return_value=_ok("Identifiers         : amazon:0441013597, isbn:9780441013593\n"),
+    )
+    assert read_embedded_metadata(Path("dummy.epub"))["isbn"] == "9780441013593"
+
+
+def test_read_embedded_metadata_ignores_identifiers_without_an_isbn(mocker):
+    mocker.patch(
+        "subprocess.run",
+        return_value=_ok("Identifiers         : amazon:0441013597, hardcover:dune\n"),
+    )
+    assert read_embedded_metadata(Path("dummy.epub"))["isbn"] == ""
+
+
+@pytest.mark.parametrize(
+    "embedded,expected",
+    [
+        ("isbn:978-0-441-01359-3", "9780441013593"),
+        ("isbn:978 0 441 01359 3", "9780441013593"),
+        ("isbn:0-441-01359-X", "044101359X"),
+        ("isbn:urn:isbn:9780441013593", "9780441013593"),
+    ],
+)
+def test_read_embedded_metadata_normalizes_the_isbn(mocker, embedded, expected):
+    # Metadata sources index the plain digits, so a hyphenated value looked up
+    # verbatim matches nothing.
+    mocker.patch("subprocess.run", return_value=_ok(f"Identifiers         : {embedded}\n"))
+    assert read_embedded_metadata(Path("dummy.epub"))["isbn"] == expected
+
+
+def test_read_embedded_metadata_still_accepts_a_bare_isbn_line(mocker):
+    mocker.patch("subprocess.run", return_value=_ok("ISBN                : 978-0-441-01359-3\n"))
+    assert read_embedded_metadata(Path("dummy.epub"))["isbn"] == "9780441013593"
 
 
 def test_read_embedded_metadata_returns_empty_on_missing_fields(mocker):
