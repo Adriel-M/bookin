@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 SUPPORTED_EXTENSIONS = {".epub", ".mobi", ".azw", ".azw3", ".pdf", ".djvu", ".fb2"}
+
+# Files that fail processing are quarantined here, inside the input directory.
+# The watcher must skip it: a dead-lettered file that got re-queued would fail
+# again, be moved again under a new name, and grow without bound.
+FAILED_DIR_NAME = "_failed"
 STABILITY_WAIT = 5  # seconds to wait before checking a file for stability
 STABILITY_POLL = 1  # seconds between the two size reads that confirm stability
 

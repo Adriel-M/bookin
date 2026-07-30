@@ -41,7 +41,7 @@ Calibre handles all template rendering and path sanitization natively — there 
 - **Throwaway Calibre library per file** — no persistent library is maintained. Each processed file creates and deletes its own temp library.
 - **`QT_QPA_PLATFORM=offscreen`** is set in the Dockerfile. Calibre's CLI tools use Qt internally; this env var lets them run headlessly without Xvfb.
 - **Metadata fetch failures are non-fatal** — if Hardcover returns nothing, the file is exported using only its embedded metadata.
-- **Failed files** land in `/output/_failed/` with a `.error` sidecar containing the traceback.
+- **Failed files** land in `/input/_failed/` with a `.error` sidecar containing the traceback — in the *input* tree, so `/output` holds only the finished library. `watcher._is_quarantined` excludes that directory from both the startup backfill and the event handler; without it a dead-lettered file would be re-queued, fail again, be moved again under a fresh name, and grow without bound. Retrying is manual: move the file back up into `/input`.
 
 ## Development
 
@@ -103,7 +103,7 @@ Configuration is entirely via environment variables (see Key Design Decisions) �
 
 ## Known Limitations
 
-- No retry logic for transient Calibre failures — failed files go directly to `_failed/`
+- No retry logic for transient Calibre failures — failed files go directly to `/input/_failed/` and are never retried automatically
 - No rate limiting on the work queue — many simultaneous files will queue and process serially. Hardcover allows 60 req/min and we spend up to 2 per book; a 429 is retried once, then the book falls back to embedded metadata
 - `ebook-meta` output parsing uses a line-by-line regex; may miss metadata if Calibre changes its output format
 - The Hardcover schema is pinned to a submodule commit, with no automated freshness check. If Hardcover renames a field we select, lookups fail non-fatally and log `Hardcover lookup failed: ...` per book while metadata silently stops improving — `make update-schema` moves the pin and regenerates
