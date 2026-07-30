@@ -8,9 +8,20 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      # submodules: the Hardcover schema comes from the hardcover-docs submodule.
       - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
+
+      # The client is generated from the submodule's schema plus queries/, not
+      # committed, so it has to exist before anything imports bookin. Codegen
+      # also validates our operations against that schema, so a query that no
+      # longer matches it fails here.
+      - name: Generate the Hardcover client
+        run: make codegen
+
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy src/
@@ -24,7 +35,11 @@ jobs:
       contents: read
       packages: write
     steps:
+      # The image build runs codegen, which needs the submodule's schema in the
+      # build context.
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

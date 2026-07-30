@@ -1,0 +1,13 @@
+# Title/author search. Hardcover's `search` is Typesense-backed and already
+# weights title above author.
+#
+# Only `ids` is selected: `results` carries the full Typesense documents but is
+# typed `jsonb`, so selecting it would introduce an `Any` into the generated
+# client. We hydrate the ids through FindBooksByIds instead, which is fully
+# typed.
+
+query SearchBooks($query: String!) {
+  search(query: $query, query_type: "Book", per_page: 25) {
+    ids
+  }
+}

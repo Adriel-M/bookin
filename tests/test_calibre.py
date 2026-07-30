@@ -1,4 +1,3 @@
-import json
 import subprocess
 from pathlib import Path
 
@@ -8,9 +7,7 @@ from bookin.calibre import (
     calibredb_add,
     calibredb_export,
     calibredb_remove,
-    configure_hardcover,
-    fetch_metadata,
-    parse_opf,
+    check_calibre,
     read_embedded_metadata,
     write_metadata,
 )
@@ -54,145 +51,29 @@ def test_calibredb_add_raises_if_binary_missing(mocker, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# fetch_metadata
+# check_calibre
 # ---------------------------------------------------------------------------
 
-OPF_CONTENT = '<?xml version="1.0"?><package/>'
+
+def test_check_calibre_requires_the_tools_the_pipeline_uses(mocker):
+    which = mocker.patch("shutil.which", return_value="/usr/bin/x")
+    check_calibre()
+    checked = [call.args[0] for call in which.call_args_list]
+    # ebook-meta does the embedding and the embedded-metadata read, so a missing
+    # one has to fail loudly rather than at the first processed file.
+    assert checked == ["calibredb", "ebook-meta"]
 
 
-def test_fetch_metadata_success(mocker):
-    mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
-    result = fetch_metadata("Dune", "Frank Herbert", None)
-    assert result == OPF_CONTENT
+def test_check_calibre_no_longer_requires_fetch_ebook_metadata(mocker):
+    which = mocker.patch("shutil.which", return_value="/usr/bin/x")
+    check_calibre()
+    assert "fetch-ebook-metadata" not in [call.args[0] for call in which.call_args_list]
 
 
-def test_fetch_metadata_uses_isbn_when_available(mocker):
-    run_mock = mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
-    fetch_metadata(None, None, "9780441013593")
-    cmd = run_mock.call_args[0][0]
-    assert "--isbn" in cmd
-    assert "9780441013593" in cmd
-
-
-def test_fetch_metadata_passes_cover_path(mocker, tmp_path):
-    run_mock = mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
-    cover = tmp_path / "cover.jpg"
-    fetch_metadata("Dune", None, None, cover)
-    cmd = run_mock.call_args[0][0]
-    assert "--cover" in cmd
-    assert str(cover) in cmd
-
-
-def test_fetch_metadata_omits_cover_when_not_requested(mocker):
-    run_mock = mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
-    fetch_metadata("Dune", None, None)
-    assert "--cover" not in run_mock.call_args[0][0]
-
-
-def test_fetch_metadata_returns_none_on_empty_output(mocker):
-    mocker.patch("subprocess.run", return_value=_ok(""))
-    assert fetch_metadata("Unknown", None, None) is None
-
-
-def test_fetch_metadata_returns_none_with_no_search_terms(mocker):
-    assert fetch_metadata(None, None, None) is None
-
-
-def test_fetch_metadata_uses_hardcover_plugin(mocker):
-    run_mock = mocker.patch("subprocess.run", return_value=_ok(OPF_CONTENT))
-    fetch_metadata("Dune", None, None)
-    cmd = run_mock.call_args[0][0]
-    assert cmd[:3] == ["fetch-ebook-metadata", "--allowed-plugin", "Hardcover"]
-    assert "Amazon.com" not in cmd
-
-
-# ---------------------------------------------------------------------------
-# configure_hardcover
-# ---------------------------------------------------------------------------
-
-SECRET_TOKEN = "hc_super_secret_abc123"
-
-
-def test_configure_hardcover_seeds_token_file(mocker, tmp_path):
-    mocker.patch("tempfile.mkdtemp", return_value=str(tmp_path))
-    mocker.patch("atexit.register")
-    mocker.patch("subprocess.run", return_value=_ok())  # calibre-customize ok
-    mocker.patch.dict("os.environ", {}, clear=False)
-
-    configure_hardcover(SECRET_TOKEN)
-
-    cfg = tmp_path / "metadata_sources" / "Hardcover.json"
-    assert cfg.exists()
-    assert json.loads(cfg.read_text()) == {"api_key": SECRET_TOKEN}
-    import os
-
-    assert os.environ["CALIBRE_CONFIG_DIRECTORY"] == str(tmp_path)
-
-
-def test_configure_hardcover_never_logs_token(mocker, tmp_path, caplog):
-    import logging
-
-    mocker.patch("tempfile.mkdtemp", return_value=str(tmp_path))
-    mocker.patch("atexit.register")
-    run_mock = mocker.patch("subprocess.run", return_value=_ok())
-    mocker.patch.dict("os.environ", {}, clear=False)
-
-    with caplog.at_level(logging.DEBUG):
-        configure_hardcover(SECRET_TOKEN)
-
-    # The token must not appear anywhere in log output...
-    assert SECRET_TOKEN not in caplog.text
-    # ...nor on any command line handed to a subprocess.
-    for call in run_mock.call_args_list:
-        assert SECRET_TOKEN not in call.args[0]
-
-
-def test_configure_hardcover_raises_if_install_fails(mocker, tmp_path):
-    mocker.patch("tempfile.mkdtemp", return_value=str(tmp_path))
-    mocker.patch("atexit.register")
-    mocker.patch("subprocess.run", return_value=_ok(returncode=1, stderr="boom"))
-    mocker.patch.dict("os.environ", {}, clear=False)
-
-    with pytest.raises(CalibreCommandError):
-        configure_hardcover(SECRET_TOKEN)
-
-
-# ---------------------------------------------------------------------------
-# parse_opf
-# ---------------------------------------------------------------------------
-
-FULL_OPF = """<?xml version='1.0' encoding='utf-8'?>
-<package xmlns="http://www.idpf.org/2007/opf">
-  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
-    <dc:title>Dune</dc:title>
-    <dc:creator opf:role="aut">Frank Herbert</dc:creator>
-    <dc:publisher>Ace Books</dc:publisher>
-    <dc:date>1965-08-01</dc:date>
-    <dc:identifier opf:scheme="ISBN">9780441013593</dc:identifier>
-    <meta name="calibre:series" content="Dune Chronicles"/>
-    <meta name="calibre:series_index" content="1"/>
-  </metadata>
-</package>"""
-
-
-def test_parse_opf_extracts_all_fields():
-    meta = parse_opf(FULL_OPF)
-    assert meta["title"] == "Dune"
-    assert meta["authors"] == "Frank Herbert"
-    assert meta["publisher"] == "Ace Books"
-    assert meta["pubdate"] == "1965-08-01"
-    assert meta["isbn"] == "9780441013593"
-    assert meta["series"] == "Dune Chronicles"
-    assert meta["series_index"] == "1"
-
-
-def test_parse_opf_missing_fields_are_absent():
-    meta = parse_opf(
-        '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Only Title</dc:title></metadata></package>'
-    )
-    assert meta["title"] == "Only Title"
-    assert meta.get("authors", "") == ""
-    assert "series" not in meta
+def test_check_calibre_raises_when_a_binary_is_missing(mocker):
+    mocker.patch("shutil.which", return_value=None)
+    with pytest.raises(CalibreNotFoundError):
+        check_calibre()
 
 
 # ---------------------------------------------------------------------------

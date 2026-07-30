@@ -4,20 +4,24 @@ import os
 import click
 from rich.logging import RichHandler
 
-from bookin.calibre import configure_hardcover
 from bookin.config import load_config
 from bookin.errors import MetadataFetchError
-from bookin.hardcover import verify_token
+from bookin.hardcover import configure, verify_token
 from bookin.version import get_commit
 from bookin.watcher import run_daemon
 
 
 def _setup_logging(level: str) -> None:
+    resolved = getattr(logging, level.upper(), logging.INFO)
     logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
+        level=resolved,
         format="%(message)s",
         handlers=[RichHandler(rich_tracebacks=True)],
     )
+    # httpx logs a line per request at INFO, which drowns our own output at the
+    # default level. Keep it for --verbose, where it's genuinely useful.
+    if resolved > logging.DEBUG:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 @click.command()
@@ -46,6 +50,6 @@ def main(verbose: bool) -> None:
         verify_token(token)
     except MetadataFetchError as err:
         raise click.ClickException(str(err)) from err
-    configure_hardcover(token)
+    configure(token)
 
     run_daemon(cfg)

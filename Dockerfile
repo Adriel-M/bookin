@@ -19,14 +19,19 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY src/ ./src/
-RUN uv sync --frozen --no-dev
 
-# Stage the third-party Hardcover metadata plugin (installed into a private
-# Calibre config dir at startup by configure_hardcover, not here). Bump the
-# version to update; the plugin tracks Hardcover's beta API.
-ARG HARDCOVER_PLUGIN_VERSION=0.5.0
-RUN wget -q -O /opt/hardcover.zip \
-      "https://github.com/robbrazier/calibre-plugins/releases/download/hardcover-${HARDCOVER_PLUGIN_VERSION}/hardcover-${HARDCOVER_PLUGIN_VERSION}.zip"
+# The Hardcover GraphQL client is generated from the vendored schema plus our
+# operations rather than committed, so it has to be built before the project is
+# installed. Pinned so the image is reproducible.
+ARG ARIADNE_CODEGEN_VERSION=0.18.0
+# Only the schema itself, not the whole hardcover-docs submodule (~18 MB of
+# documentation assets we have no use for).
+COPY vendor/hardcover-docs/schema.graphql ./vendor/hardcover-docs/schema.graphql
+COPY queries/ ./queries/
+RUN uv tool run --from "ariadne-codegen==${ARIADNE_CODEGEN_VERSION}" ariadne-codegen \
+    && test -f src/bookin/graphql_client/client.py
+
+RUN uv sync --frozen --no-dev
 
 # Bake the build's commit hash for startup logging (CI sets this to the git
 # SHA). Placed last so it doesn't invalidate the cached layers above on every

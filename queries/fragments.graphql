@@ -1,0 +1,49 @@
+# Shared selections for the metadata we embed.
+#
+# Both fragments are anchored so that every path stays within Hardcover's
+# documented maximum query depth of 3. In particular they deliberately avoid
+# the cached_* jsonb columns (cached_contributors, cached_image,
+# cached_featured_series) that the Calibre plugin reads: jsonb generates as
+# `Any`, which would defeat the point of a typed client. The relational
+# equivalents below carry the same data and are fully typed.
+
+fragment BookFields on books {
+  id
+  title
+  slug
+  contributions(limit: 20) {
+    contribution
+    author {
+      name
+    }
+  }
+  book_series(limit: 10) {
+    position
+    featured
+    series {
+      name
+    }
+  }
+  image {
+    url
+  }
+}
+
+fragment EditionFields on editions {
+  id
+  title
+  isbn_10
+  isbn_13
+  release_date
+  users_count
+  reading_format_id
+  publisher {
+    name
+  }
+  language {
+    code3
+  }
+  image {
+    url
+  }
+}

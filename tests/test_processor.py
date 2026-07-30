@@ -39,11 +39,7 @@ def _make_calibre_mocks(mocker, *, fetch_ok=True, write_meta_ok=True, export_ok=
     )
     mocker.patch(
         "bookin.processor.fetch_metadata",
-        return_value="<opf/>" if fetch_ok else None,
-    )
-    mocker.patch(
-        "bookin.processor.parse_opf",
-        return_value={"title": "Dune", "authors": "Frank Herbert"},
+        return_value={"title": "Dune", "authors": "Frank Herbert"} if fetch_ok else None,
     )
     mocker.patch(
         "bookin.processor.write_metadata",
@@ -96,7 +92,7 @@ def test_process_file_embeds_cover_when_downloaded(mocker, epub_file, cfg):
     # Simulate fetch_metadata downloading the cover to the path it is given.
     def fake_fetch(title, authors, isbn, cover_path):
         cover_path.write_bytes(b"jpeg")
-        return "<opf/>"
+        return {"title": "Dune", "authors": "Frank Herbert"}
 
     mocker.patch("bookin.processor.fetch_metadata", side_effect=fake_fetch)
     process_file(epub_file, cfg)

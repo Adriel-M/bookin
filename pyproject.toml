@@ -11,7 +11,10 @@ dependencies = [
     "watchdog>=4.0",
     "click>=8.1",
     "rich>=13.0",
-    "defusedxml>=0.7",
+    # httpx and pydantic are what the generated Hardcover client runs on.
+    "httpx>=0.28",
+    "pydantic>=2.0",
+    "pyjarowinkler>=3.0",
 ]
 
 [project.scripts]
@@ -23,7 +26,6 @@ dev = [
     "pytest-mock>=3.12",
     "ruff>=0.4",
     "mypy>=1.10",
-    "types-defusedxml>=0.7",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -32,6 +34,9 @@ packages = ["src/bookin"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# ariadne-codegen formats its own output; linting or reformatting it here would
+# fight the generator and break the `make codegen` diff check in CI.
+extend-exclude = ["src/bookin/graphql_client"]
 
 [tool.ruff.lint]
 select = [
@@ -60,5 +65,40 @@ warn_return_any = true
 module = "watchdog.*"
 ignore_missing_imports = true
 
+# pyjarowinkler ships no py.typed marker.
+[[tool.mypy.overrides]]
+module = "pyjarowinkler.*"
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Generates src/bookin/graphql_client from the vendored schema. Run via
+# `make codegen` (which uses uvx, keeping ariadne-codegen's pinned ruff out of
+# this project's dev environment).
+[tool.ariadne-codegen]
+schema_path = "vendor/hardcover-docs/schema.graphql"
+queries_path = "queries"
+target_package_name = "graphql_client"
+target_package_path = "src/bookin"
+client_name = "HardcoverClient"
+# The processor runs on a plain worker thread, so a sync client fits.
+async_client = false
+# Hardcover's schema is Hasura-generated and enormous; only emit what the
+# operations in queries/ actually reference.
+include_all_inputs = false
+include_all_enums = false
+
+# Hasura's custom scalars. Unmapped scalars generate as `typing.Any`, so every
+# one our queries touch is mapped here to keep the client free of `Any`.
+[tool.ariadne-codegen.scalars.date]
+type = "str"
+
+[tool.ariadne-codegen.scalars.float8]
+type = "float"
+
+[tool.ariadne-codegen.scalars.numeric]
+type = "float"
+
+[tool.ariadne-codegen.scalars.bigint]
+type = "int"
