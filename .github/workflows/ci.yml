@@ -11,18 +11,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
+
+      # The Hardcover client is generated from schema/ + queries/, not committed,
+      # so it has to exist before anything imports bookin. Codegen also validates
+      # our operations against the vendored schema, so a query that no longer
+      # matches it fails here.
+      - name: Generate the Hardcover client
+        run: make codegen
+
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy src/
       - run: uv run pytest
-
-      # The Hardcover client is generated from schema/ + queries/. Regenerating
-      # must be a no-op: a diff here means either the generated code was edited
-      # by hand, or a query changed without `make codegen` being run.
-      - name: Check the generated client is up to date
-        run: |
-          make codegen
-          git diff --exit-code src/bookin/graphql_client
 
   build:
     needs: ci
