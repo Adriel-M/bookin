@@ -11,7 +11,7 @@ Drop ebooks into a folder — bookin automatically fetches metadata and cover ar
 3. The book is exported to the output folder using your configured template (e.g. `{authors}/{title}`)
 4. The source file is removed from the input folder
 
-Files that fail are moved to `output/_failed/` with an `.error` sidecar describing what went wrong.
+Files that fail are moved to `input/_failed/` with an `.error` sidecar describing what went wrong. They stay out of `output/`, which holds only the finished library, and the watcher ignores that folder — so a failed book is never retried automatically. Fix whatever the sidecar reports and move the file back into `input/` to try again.
 
 ## Quick start (Docker)
 

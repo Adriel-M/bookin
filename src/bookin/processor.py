@@ -13,7 +13,7 @@ from bookin.calibre import (
     read_embedded_metadata,
     write_metadata,
 )
-from bookin.config import SUPPORTED_EXTENSIONS, Config
+from bookin.config import FAILED_DIR_NAME, SUPPORTED_EXTENSIONS, Config
 from bookin.errors import ProcessingError
 from bookin.hardcover import fetch_metadata
 
@@ -28,7 +28,7 @@ def process_file(file: Path, cfg: Config) -> None:
         _process(file, cfg, tmp_dir)
     except Exception as exc:
         log.error("Failed to process %s: %s", file.name, exc)
-        _move_to_failed(file, exc, cfg.output_dir)
+        _move_to_failed(file, exc, cfg.input_dir)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -127,8 +127,14 @@ def _cleanup_dirs(directory: Path, input_dir: Path) -> None:
         current = current.parent
 
 
-def _move_to_failed(file: Path, exc: Exception, output_dir: Path) -> None:
-    failed_dir = output_dir / "_failed"
+def _move_to_failed(file: Path, exc: Exception, input_dir: Path) -> None:
+    """Quarantine a file that could not be processed, with a .error sidecar.
+
+    Lands in the input directory rather than the output one: the output tree is
+    the finished library, and a half-processed book has no business in it. The
+    watcher skips this directory, so quarantined files are not retried.
+    """
+    failed_dir = input_dir / FAILED_DIR_NAME
     failed_dir.mkdir(parents=True, exist_ok=True)
 
     dest = failed_dir / file.name

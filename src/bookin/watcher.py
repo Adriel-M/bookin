@@ -16,17 +16,33 @@ from watchdog.events import (
 from watchdog.observers import Observer
 
 from bookin.calibre import check_calibre
-from bookin.config import STABILITY_POLL, STABILITY_WAIT, SUPPORTED_EXTENSIONS, Config
+from bookin.config import (
+    FAILED_DIR_NAME,
+    STABILITY_POLL,
+    STABILITY_WAIT,
+    SUPPORTED_EXTENSIONS,
+    Config,
+)
 from bookin.processor import process_file
 
 log = logging.getLogger("bookin.watcher")
 
 
+def _is_quarantined(path: Path, failed_dir: Path) -> bool:
+    """True if a path lives in the dead-letter directory.
+
+    Quarantined files must never be re-queued: processing would fail again,
+    move the file again under a fresh name, and repeat without bound.
+    """
+    return failed_dir == path or failed_dir in path.parents
+
+
 class _BookEventHandler(FileSystemEventHandler):
     """Watchdog event handler that queues stable ebook files for processing."""
 
-    def __init__(self, work_queue: queue.Queue[Path | None]) -> None:
+    def __init__(self, work_queue: queue.Queue[Path | None], failed_dir: Path) -> None:
         self._queue = work_queue
+        self._failed_dir = failed_dir
         self._pending: dict[str, threading.Timer] = {}
         self._lock = threading.Lock()
 
@@ -42,6 +58,9 @@ class _BookEventHandler(FileSystemEventHandler):
 
     def _schedule(self, path: Path) -> None:
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+            return
+        if _is_quarantined(path, self._failed_dir):
+            log.debug("Ignoring quarantined file: %s", path.name)
             return
         key = str(path)
         with self._lock:
@@ -102,16 +121,22 @@ def run_daemon(cfg: Config) -> None:
     cfg.input_dir.mkdir(parents=True, exist_ok=True)
     log.info("Watching %s for ebooks...", cfg.input_dir)
 
+    failed_dir = cfg.input_dir / FAILED_DIR_NAME
     work_queue: queue.Queue[Path | None] = queue.Queue()
-    handler = _BookEventHandler(work_queue)
+    handler = _BookEventHandler(work_queue, failed_dir)
 
     worker_thread = threading.Thread(target=_worker, args=(work_queue, cfg), daemon=True)
     worker_thread.start()
 
     for path in sorted(cfg.input_dir.rglob("*")):
-        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
-            log.info("Queuing existing file: %s", path.name)
-            work_queue.put(path)
+        if not (path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS):
+            continue
+        if _is_quarantined(path, failed_dir):
+            # Backfill must skip these too, or every restart retries them.
+            log.debug("Ignoring quarantined file: %s", path.name)
+            continue
+        log.info("Queuing existing file: %s", path.name)
+        work_queue.put(path)
 
     observer = Observer()
     observer.schedule(handler, str(cfg.input_dir), recursive=True)

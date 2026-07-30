@@ -157,11 +157,11 @@ def test_process_file_continues_if_write_metadata_fails(mocker, epub_file, cfg):
 # ---------------------------------------------------------------------------
 
 
-def test_process_file_moves_to_failed_on_export_error(mocker, epub_file, cfg, patch_output_dir):
+def test_process_file_moves_to_failed_on_export_error(mocker, epub_file, cfg):
     _make_calibre_mocks(mocker, export_ok=False)
     process_file(epub_file, cfg)
 
-    failed_dir = patch_output_dir / "_failed"
+    failed_dir = cfg.input_dir / "_failed"
     assert failed_dir.exists()
     assert len(list(failed_dir.glob("*.epub"))) == 1
     assert len(list(failed_dir.glob("*.error"))) == 1
@@ -176,6 +176,16 @@ def test_process_file_source_not_deleted_on_failure(mocker, epub_file, cfg):
 # ---------------------------------------------------------------------------
 # Output placement and collisions
 # ---------------------------------------------------------------------------
+
+
+def test_failed_files_land_in_input_not_output(mocker, epub_file, cfg, output_dir):
+    # The output tree is the finished library; a half-processed book has no
+    # business in it.
+    _make_calibre_mocks(mocker, export_ok=False)
+    process_file(epub_file, cfg)
+
+    assert (cfg.input_dir / "_failed" / epub_file.name).exists()
+    assert not (output_dir / "_failed").exists()
 
 
 def test_process_file_places_export_under_output_dir(mocker, epub_file, cfg, output_dir):
@@ -205,7 +215,7 @@ def test_process_file_refuses_to_overwrite_an_existing_export(mocker, epub_file,
     process_file(epub_file, cfg)
 
     assert existing.read_bytes() == b"the first book", "Existing export was overwritten"
-    failed = output_dir / "_failed"
+    failed = cfg.input_dir / "_failed"
     assert len(list(failed.glob("*.epub"))) == 1, "Colliding book should be dead-lettered"
 
 
@@ -218,7 +228,7 @@ def test_collision_error_names_the_conflicting_path(mocker, epub_file, cfg, outp
     with caplog.at_level(logging.INFO):
         process_file(epub_file, cfg)
 
-    sidecar = next((output_dir / "_failed").glob("*.error"))
+    sidecar = next((cfg.input_dir / "_failed").glob("*.error"))
     assert "Dune.epub" in sidecar.read_text()
     assert "already exists" in caplog.text
 
@@ -236,7 +246,7 @@ def test_process_file_fails_when_export_produces_nothing(mocker, epub_file, cfg,
     mocker.patch("bookin.processor.calibredb_remove")
 
     process_file(epub_file, cfg)
-    assert len(list((output_dir / "_failed").glob("*.epub"))) == 1
+    assert len(list((cfg.input_dir / "_failed").glob("*.epub"))) == 1
 
 
 # ---------------------------------------------------------------------------

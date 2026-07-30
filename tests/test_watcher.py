@@ -21,10 +21,15 @@ def work_queue():
 
 
 @pytest.fixture
-def handler(work_queue, mocker):
+def failed_dir(tmp_path):
+    return tmp_path / "_failed"
+
+
+@pytest.fixture
+def handler(work_queue, failed_dir, mocker):
     # Replace threading.Timer so _schedule never starts a real background thread.
     mocker.patch("bookin.watcher.threading.Timer")
-    return _BookEventHandler(work_queue)
+    return _BookEventHandler(work_queue, failed_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -101,3 +106,58 @@ def test_check_stable_reschedules_when_still_growing(handler, work_queue, tmp_pa
 
     assert work_queue.empty()  # not stable yet
     assert str(book) in handler._pending  # rescheduled for another check
+
+
+# ---------------------------------------------------------------------------
+# Quarantined files must never be re-queued
+# ---------------------------------------------------------------------------
+
+
+def test_schedule_ignores_files_in_the_failed_dir(handler, failed_dir, mocker):
+    # Without this, a dead-lettered file is re-queued, fails again, is moved
+    # again under a fresh name, and grows without bound.
+    timer = mocker.patch("bookin.watcher.threading.Timer")
+    handler._schedule(failed_dir / "dune.epub")
+    assert not timer.called
+
+
+def test_schedule_ignores_files_nested_under_the_failed_dir(handler, failed_dir, mocker):
+    timer = mocker.patch("bookin.watcher.threading.Timer")
+    handler._schedule(failed_dir / "nested" / "dune.epub")
+    assert not timer.called
+
+
+def test_schedule_still_accepts_files_outside_the_failed_dir(handler, tmp_path, mocker):
+    timer = mocker.patch("bookin.watcher.threading.Timer")
+    handler._schedule(tmp_path / "dune.epub")
+    assert timer.called
+
+
+def test_schedule_does_not_confuse_a_similar_sibling_name(handler, tmp_path, mocker):
+    # "_failed_books" is not the quarantine directory.
+    timer = mocker.patch("bookin.watcher.threading.Timer")
+    handler._schedule(tmp_path / "_failed_books" / "dune.epub")
+    assert timer.called
+
+
+def test_backfill_skips_the_failed_dir(tmp_path, mocker):
+    from bookin.config import Config
+    from bookin.watcher import run_daemon
+
+    (tmp_path / "_failed").mkdir()
+    (tmp_path / "_failed" / "broken.epub").write_bytes(b"x")
+    (tmp_path / "good.epub").write_bytes(b"x")
+
+    queued = []
+    mocker.patch("bookin.watcher.check_calibre")
+    mocker.patch("bookin.watcher.threading.Thread")
+    mocker.patch("bookin.watcher.Observer", side_effect=RuntimeError("stop after backfill"))
+    mocker.patch.object(queue.Queue, "put", side_effect=lambda p: queued.append(p))
+
+    cfg = Config(input_dir=tmp_path, output_dir=tmp_path / "out")
+    with pytest.raises(RuntimeError):
+        run_daemon(cfg)
+
+    names = [p.name for p in queued if p is not None]
+    assert "good.epub" in names
+    assert "broken.epub" not in names, "Restart must not retry quarantined files"
