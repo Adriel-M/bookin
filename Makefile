@@ -1,11 +1,19 @@
-.PHONY: test lint format typecheck check fix codegen clean-codegen build up down logs
+.PHONY: test lint format typecheck check fix codegen clean-codegen update-schema build up down logs
 
 # The Hardcover client is generated from schema/ + queries/ rather than
 # committed, so every target that imports bookin depends on it. Make rebuilds it
 # automatically whenever the schema or a query is newer than the output.
 CODEGEN_VERSION := 0.18.0
 GENERATED := src/bookin/graphql_client/client.py
-CODEGEN_INPUTS := schema/hardcover.graphql $(wildcard queries/*.graphql) pyproject.toml
+
+# Hardcover's schema comes from the hardcover-docs submodule, pinned to a commit.
+# Bump it with `make update-schema`. The rule below initialises the submodule on
+# demand, so a clone without --recursive still works.
+SCHEMA := vendor/hardcover-docs/schema.graphql
+CODEGEN_INPUTS := $(SCHEMA) $(wildcard queries/*.graphql) pyproject.toml
+
+$(SCHEMA):
+	git submodule update --init --depth 1 vendor/hardcover-docs
 
 $(GENERATED): $(CODEGEN_INPUTS)
 	uv tool run --from ariadne-codegen==$(CODEGEN_VERSION) ariadne-codegen
@@ -42,6 +50,12 @@ codegen: $(GENERATED)
 
 clean-codegen:
 	rm -rf src/bookin/graphql_client
+
+# Move the pinned schema to Hardcover's latest and regenerate. Commit the
+# submodule bump alongside whatever the regenerated client requires.
+update-schema:
+	git submodule update --remote --depth 1 vendor/hardcover-docs
+	$(MAKE) clean-codegen codegen
 
 # ── Docker ───────────────────────────────────────────────────────────────────
 

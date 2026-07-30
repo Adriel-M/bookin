@@ -1,0 +1,4 @@
+[submodule "vendor/hardcover-docs"]
+	path = vendor/hardcover-docs
+	url = https://github.com/hardcoverapp/hardcover-docs.git
+	shallow = true

@@ -24,7 +24,9 @@ COPY src/ ./src/
 # operations rather than committed, so it has to be built before the project is
 # installed. Pinned so the image is reproducible.
 ARG ARIADNE_CODEGEN_VERSION=0.18.0
-COPY schema/ ./schema/
+# Only the schema itself, not the whole hardcover-docs submodule (~18 MB of
+# documentation assets we have no use for).
+COPY vendor/hardcover-docs/schema.graphql ./vendor/hardcover-docs/schema.graphql
 COPY queries/ ./queries/
 RUN uv tool run --from "ariadne-codegen==${ARIADNE_CODEGEN_VERSION}" ariadne-codegen \
     && test -f src/bookin/graphql_client/client.py

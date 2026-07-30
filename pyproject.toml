@@ -77,7 +77,7 @@ testpaths = ["tests"]
 # `make codegen` (which uses uvx, keeping ariadne-codegen's pinned ruff out of
 # this project's dev environment).
 [tool.ariadne-codegen]
-schema_path = "schema/hardcover.graphql"
+schema_path = "vendor/hardcover-docs/schema.graphql"
 queries_path = "queries"
 target_package_name = "graphql_client"
 target_package_path = "src/bookin"
