@@ -7,11 +7,22 @@ Drop ebooks into a folder — bookin automatically fetches metadata and cover ar
 ## How it works
 
 1. Drop an ebook (`.epub`, `.mobi`, `.azw3`, `.pdf`, etc.) into the input folder
-2. bookin detects the new file, reads its embedded metadata, and queries the Hardcover API for enriched metadata + cover
-3. The book is exported to the output folder using your configured template (e.g. `{authors}/{title}`)
-4. The source file is removed from the input folder
+2. bookin reads the file's embedded metadata and looks the book up on Hardcover — by ISBN when the file carries one, otherwise by title and author
+3. The matched metadata and cover art are embedded into the file
+4. The book is exported to the output folder using your configured template (e.g. `{authors}/{title}`)
+5. The source file is removed from the input folder
 
-Files that fail are moved to `input/_failed/` with an `.error` sidecar describing what went wrong. They stay out of `output/`, which holds only the finished library, and the watcher ignores that folder — so a failed book is never retried automatically. Fix whatever the sidecar reports and move the file back into `input/` to try again.
+**Enrichment is best-effort.** If Hardcover has no confident match, the book is still exported using whatever metadata the file already carried — nothing is lost, it just isn't improved. An ISBN gives an exact match; a title/author search is fuzzy and can decline a poor candidate rather than guess.
+
+The fields written are **title, authors, series, series_index, publisher, pubdate, isbn** and the **cover** — those are what your template can rely on.
+
+Title/author search currently prefers English editions (or editions with no language recorded), so a non-English book may fall back to its embedded metadata. Lookups by ISBN are unaffected and work in any language.
+
+### Failures
+
+**bookin never overwrites a file already in the output folder.** If two books resolve to the same output path — most often two editions of the same book, or a book matched to its own sequel — the second is refused rather than silently replacing the first. Use a template that distinguishes them (adding `{series_index}` usually does it) if it happens for books you actually want both of.
+
+Failed files move to `input/_failed/` with an `.error` sidecar describing what went wrong. They stay out of `output/`, which holds only the finished library, and the watcher ignores that folder — so a failed book is never retried automatically, including across restarts. Fix whatever the sidecar reports and move the file back up into `input/` to try again.
 
 ## Quick start (Docker)
 
@@ -122,14 +133,15 @@ The pin means the schema can lag Hardcover. If upstream renames a field we selec
 
 **Development:**
 ```bash
-make test       # run tests
-make lint       # lint
-make format     # format
-make typecheck  # type check
-make check      # all of the above (lint + format + types + tests)
-make fix        # auto-fix lint and formatting
+make test           # run tests
+make lint           # lint
+make format         # format
+make typecheck      # type check
+make check          # all of the above (lint + format + types + tests)
+make fix            # auto-fix lint and formatting
 make codegen        # regenerate the Hardcover client
 make update-schema  # bump the pinned Hardcover schema, then regenerate
+make clean-codegen  # delete the generated client
 ```
 
 **Docker:**
@@ -144,8 +156,8 @@ make logs       # follow logs
 
 | Mount | Purpose |
 |---|---|
-| `./input:/input` | Drop ebooks here |
-| `./output:/output` | Organized output |
+| `./input:/input` | Drop ebooks here; failures are quarantined in `./input/_failed/` |
+| `./output:/output` | Organized output — only successfully processed books |
 
 Input and output paths are fixed to `/input` and `/output` inside the container.
 
